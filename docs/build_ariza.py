@@ -136,8 +136,8 @@ for ri, v in {
        "viloyat transport boshqarmasi, avtobus tashuvchi korxonalar.",
     8: "3 oy (8 hafta ma’lumot yig‘ish va ilova ishlab chiqish + 4 hafta "
        "pilot sinov)",
-    9: "18 000 000 so‘m (ma’lumot yig‘ish, server, xarita xizmatlari, "
-       "dizayn va pilot xarajatlari)",
+    9: "40 000 000 so‘m (jamoa mehnati, dala tadqiqoti, 12 oylik server va "
+       "xarita xizmatlari, test qurilmalari, dizayn, pilot va targ‘ibot)",
 }.items():
     set_row(T[5], ri, [None, v])
 
@@ -384,30 +384,38 @@ set_row(T[25], 3, [None, "Ochiq manbali freymvorklar va kutubxonalar (Flutter �
 
 # ---------------------------------------------------------------- 11. Smeta
 costs = [
+    ("Jamoa mehnat haqi (2 muallif)", "2 kishi × 3 oy", "1 500 000 so‘m",
+     "9 000 000 so‘m", "Ilova, marshrut algoritmi va ma’lumotlar bazasini "
+     "ishlab chiqish, pilotni olib borish"),
     ("Dala tadqiqoti: yo‘nalishlar va bekatlarni GPS bilan belgilash",
-     "2 kishi × 1 oy", "2 000 000 so‘m", "4 000 000 so‘m",
-     "Barcha shahar yo‘nalishlarini bosib o‘tish, yo‘l kira, mobil internet"),
-    ("Bulutli server (VPS)", "6 oy", "350 000 so‘m", "2 100 000 so‘m",
-     "Ma’lumotlar bazasi yangilanishlari va talab tahlili uchun"),
-    ("Xarita va geokodlash xizmatlari", "6 oy", "400 000 so‘m",
-     "2 400 000 so‘m", "Xarita qatlamlari va manzil qidiruvi"),
+     "2 kishi × 2 oy", "2 000 000 so‘m", "8 000 000 so‘m",
+     "Barcha yo‘nalishlarni ikki tomonga bosib o‘tish, kunning turli "
+     "soatlarida qatnov oralig‘ini o‘lchash, yo‘l kira, mobil internet"),
+    ("Xarita va geokodlash xizmatlari", "12 oy", "400 000 so‘m",
+     "4 800 000 so‘m", "Xarita qatlamlari va manzil qidiruvi"),
+    ("Bulutli server (VPS)", "12 oy", "350 000 so‘m", "4 200 000 so‘m",
+     "Ma’lumotlar bazasi yangilanishlari, veb-versiya va talab tahlili"),
+    ("Test smartfonlari (Android)", "2 ta", "1 800 000 so‘m",
+     "3 600 000 so‘m", "Arzon va o‘rta telefonlarda tezlik va qulaylikni "
+     "sinash, dala tadqiqotida GPS yozish"),
     ("3D-multfilm uslubidagi dizayn va illyustratsiyalar", "1 paket",
      "3 000 000 so‘m", "3 000 000 so‘m",
      "Diqqatga sazovor joylar belgilari, ilova ikonkalari, sxema dizayni"),
+    ("Pilot sinov va targ‘ibot", "100+ foydalanuvchi", "3 000 000 so‘m",
+     "3 000 000 so‘m", "Bekatlar uchun QR-stikerlar va bosma sxemalar, "
+     "so‘rovnoma, tarqatma materiallar"),
     ("Google Play / App Store dasturchi akkaunti", "1 to‘plam",
      "1 600 000 so‘m", "1 600 000 so‘m",
      "Ilovani rasmiy do‘konlarga joylash"),
-    ("Pilot sinov", "100+ foydalanuvchi", "1 paket", "2 000 000 so‘m",
-     "So‘rovnoma, sinov qurilmalari, tarqatma materiallar"),
     ("EHM guvohnomasini rasmiylashtirish", "1 ta", "1 400 000 so‘m",
      "1 400 000 so‘m", "Mualliflik huquqini davlat ro‘yxatidan o‘tkazish"),
-    ("Kutilmagan texnik xarajatlar", "1 paket", "1 500 000 so‘m",
-     "1 500 000 so‘m", "Domen, aloqa, ehtiyot qismlar"),
+    ("Kutilmagan texnik xarajatlar", "1 paket", "1 400 000 so‘m",
+     "1 400 000 so‘m", "Domen, aloqa, ehtiyot qismlar"),
 ]
 fit_rows(T[26], len(costs), footer=1)
 for i, row in enumerate(costs, start=1):
     set_row(T[26], i, [str(i), *row])
-set_row(T[26], len(costs) + 1, [None, "18 000 000 so‘m", ""])
+set_row(T[26], len(costs) + 1, [None, "40 000 000 so‘m", ""])
 
 # ---------------------------------------------------------------- 12. Natijalar
 set_cell(T[27].rows[0].cells[0], [
@@ -507,10 +515,10 @@ checks = {
 for p in d.paragraphs:
     t = p.text
     if t.startswith("Eslatma: VPS server"):
-        set_par(p, "Eslatma: server va xarita xizmatlari 6 oyga hisoblangan — "
-                   "3 oylik asosiy ishlar va pilot davri, qolgan muddat esa "
-                   "bazani yangilab borish va hokimlik bilan hamkorlikni "
-                   "boshlash uchun.")
+        set_par(p, "Eslatma: server va xarita xizmatlari 12 oyga hisoblangan — "
+                   "3 oylik asosiy ishlar va pilot davri, qolgan 9 oy esa "
+                   "bazani yangilab borish, aholiga xizmat ko‘rsatish va "
+                   "hokimlik bilan hamkorlikni yo‘lga qo‘yish uchun.")
     for key, done in checks.items():
         if key in t and t[:1] in "☐☑":
             set_par(p, ("☑ " if done else "☐ ") + t[2:], 9)
