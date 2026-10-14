@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bekat — Namangan avtobuslari</title>
+<meta name="description" content="Bekat — Namangan avtobuslari uchun aqlli marshrut xaritasi. Ilovani yuklab oling.">
+<link rel="icon" href="icon.png">
+<meta property="og:title" content="Bekat — Namangan avtobuslari">
+<meta property="og:image" content="https://zedrubilan.github.io/bekat/bus.png">
+<style>
+  :root { --bg: #EEF1F6; --ink: #15171C; --ink2: #5B6270; --night: #1E2024; --blue: #2D6BF0; --green: #22A55B; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; min-height: 100vh; display: flex; justify-content: center; }
+  main { width: 100%; max-width: 460px; padding: 28px 18px 36px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .badges { display: flex; gap: 6px; margin-bottom: 18px; }
+  .badges span { width: 28px; height: 28px; border-radius: 8px; color: #fff; font-weight: 800; font-size: 14px; display: grid; place-items: center; }
+  img.bus { width: 74%; max-width: 300px; margin: 4px 0 10px; animation: drive .9s cubic-bezier(.2,.9,.3,1.1) both; }
+  @keyframes drive { from { transform: translateX(-60%) rotate(-3deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  h1 { font-size: 54px; font-weight: 900; letter-spacing: -2px; line-height: 1; }
+  p.tag { font-size: 17px; color: var(--ink2); margin: 8px 0 26px; font-weight: 500; }
+  a.btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; padding: 20px; border-radius: 22px; font-size: 20px; font-weight: 800; text-decoration: none; margin-bottom: 12px; box-shadow: 0 12px 30px rgba(27,36,64,.16); }
+  a.btn svg { width: 26px; height: 26px; flex: none; }
+  a.dl { background: var(--green); color: #fff; }
+  a.web { background: #fff; color: var(--ink); }
+  a.btn small { display: block; font-size: 13px; font-weight: 600; opacity: .8; }
+  .note { background: #fff; border-radius: 18px; padding: 14px 16px; margin-top: 10px; text-align: left; font-size: 14.5px; line-height: 1.45; color: var(--ink2); width: 100%; }
+  .note b { color: var(--ink); }
+  .note ol { padding-left: 20px; margin-top: 6px; }
+  .status { font-size: 14px; color: var(--green); font-weight: 700; min-height: 20px; margin-bottom: 10px; }
+  .lang { margin-top: 22px; display: flex; gap: 8px; }
+  .lang button { border: 0; background: #fff; border-radius: 12px; padding: 8px 12px; font: inherit; font-size: 14px; font-weight: 700; color: var(--ink2); cursor: pointer; }
+  .lang button.on { background: var(--night); color: #fff; }
+  footer { margin-top: 22px; font-size: 12.5px; color: #9AA1AE; line-height: 1.5; }
+  footer a { color: var(--ink2); }
+  .hide { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="badges">
+    <span style="background:#E53935">1</span><span style="background:#1E6FE8">2</span><span style="background:#22A55B">3</span>
+    <span style="background:#F59E0B">5</span><span style="background:#8B5CF6">7</span><span style="background:#06B6D4">9</span>
+  </div>
+  <img class="bus" src="bus.png" alt="">
+  <h1>Bekat</h1>
+  <p class="tag" data-t="tag"></p>
+
+  <div class="status" id="status"></div>
+  <a class="btn dl" id="dl" href="https://github.com/ZedRubilan/bekat/releases/latest/download/Bekat.apk">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+    <span><span data-t="dl"></span><small data-t="dlSub"></small></span>
+  </a>
+  <a class="btn web" id="web" href="app/">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18"/></svg>
+    <span><span data-t="web"></span><small data-t="webSub"></small></span>
+  </a>
+
+  <div class="note" id="howto">
+    <b data-t="howT"></b>
+    <ol><li data-t="how1"></li><li data-t="how2"></li><li data-t="how3"></li></ol>
+  </div>
+
+  <div class="lang">
+    <button data-l="uz">O‘zbekcha</button><button data-l="ru">Русский</button><button data-l="en">English</button>
+  </div>
+  <footer>
+    <span data-t="authors"></span><br>
+    <a href="https://github.com/ZedRubilan/bekat">github.com/ZedRubilan/bekat</a> · © OpenStreetMap
+  </footer>
+</main>
+<script>
+const T = {
+  uz: { tag: "Namangan avtobuslari uchun aqlli marshrut xaritasi",
+    dl: "Android uchun yuklab olish", dlSub: "Bekat.apk · bepul",
+    web: "Brauzerda ochish", webSub: "iPhone va kompyuter uchun — o‘rnatmasdan",
+    howT: "O‘rnatish:", how1: "“Yuklab olish”ni bosing va faylni oching.", how2: "Telefon so‘rasa — “Noma’lum manbalardan o‘rnatishga ruxsat bering”.", how3: "“O‘rnatish”ni bosing — tayyor!",
+    starting: "Yuklab olish boshlandi…", authors: "Mualliflar: Qodirov Ulug‘bek, Zamalitdinov Salim · NamDTU, 37-ATT-23 (r)" },
+  ru: { tag: "Умная карта автобусных маршрутов Намангана",
+    dl: "Скачать для Android", dlSub: "Bekat.apk · бесплатно",
+    web: "Открыть в браузере", webSub: "для iPhone и компьютера — без установки",
+    howT: "Установка:", how1: "Нажмите «Скачать» и откройте файл.", how2: "Если телефон спросит — разрешите установку из неизвестных источников.", how3: "Нажмите «Установить» — готово!",
+    starting: "Загрузка началась…", authors: "Авторы: Кодиров Улугбек, Замалитдинов Салим · НамГТУ, 37-АТТ-23 (r)" },
+  en: { tag: "Smart bus route map for Namangan",
+    dl: "Download for Android", dlSub: "Bekat.apk · free",
+    web: "Open in browser", webSub: "for iPhone and computers — no install",
+    howT: "How to install:", how1: "Tap “Download” and open the file.", how2: "If asked, allow installing from unknown sources.", how3: "Tap “Install” — done!",
+    starting: "Download started…", authors: "Authors: Ulugbek Kodirov, Salim Zamalitdinov · NamSTU, 37-ATT-23 (r)" },
+};
+let lang = (navigator.language || "uz").slice(0, 2);
+if (!T[lang]) lang = "uz";
+try { lang = localStorage.getItem("bekat-lang") || lang; } catch (e) {}
+function apply() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-t]").forEach((e) => (e.textContent = T[lang][e.dataset.t]));
+  document.querySelectorAll("[data-l]").forEach((b) => b.classList.toggle("on", b.dataset.l === lang));
+}
+document.querySelectorAll("[data-l]").forEach((b) => b.addEventListener("click", () => {
+  lang = b.dataset.l; try { localStorage.setItem("bekat-lang", lang); } catch (e) {} apply();
+}));
+apply();
+
+const ua = navigator.userAgent;
+const android = /Android/i.test(ua);
+const ios = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const dl = document.getElementById("dl"), web = document.getElementById("web");
+if (ios) {
+  // iPhone can't install APKs: the web app is the main action
+  dl.classList.add("hide");
+  document.getElementById("howto").classList.add("hide");
+  web.parentNode.insertBefore(web, dl);
+} else if (android) {
+  // Scanned the poster with an Android phone: start the download straight away
+  setTimeout(() => {
+    document.getElementById("status").textContent = T[lang].starting;
+    location.href = dl.href;
+  }, 900);
+} else {
+  document.getElementById("howto").classList.add("hide");
+}
+</script>
+</body>
+</html>
