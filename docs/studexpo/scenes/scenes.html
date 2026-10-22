@@ -1,0 +1,333 @@
+<!doctype html>
+<!-- Иллюстрации для StudEXPO-презентации. Рендер: python3 docs/studexpo/scenes/render.py
+     Внутри сцен — настоящие экраны приложения из docs/assets; данные на них — пример. -->
+<html><head><meta charset="utf-8">
+<style>
+  body { margin: 0; background: #fff; font-family: Inter, sans-serif; }
+  svg { display: block; margin: 0 0 20px; }
+  text { font-family: Inter, sans-serif; }
+</style></head><body>
+<svg id="problem" width="860" height="980" viewBox="0 0 860 980"></svg>
+<svg id="stop" width="1280" height="1000" viewBox="0 0 1280 1000"></svg>
+<svg id="inbus" width="1370" height="1000" viewBox="0 0 1370 1000"></svg>
+<script>
+const SKIN = ["#E9B48E", "#C98E6B", "#F1C7A5"];
+const HAIR = "#2B2118";
+
+// ---------- общие детали ----------
+const defs = (id) => `
+  <defs>
+    <linearGradient id="${id}sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#DCE8FB"/><stop offset="1" stop-color="#F4F7FC"/></linearGradient>
+    <linearGradient id="${id}glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#BFD6F5" stop-opacity=".55"/><stop offset="1" stop-color="#E7F0FC" stop-opacity=".35"/></linearGradient>
+    <linearGradient id="${id}win" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFE3FA"/><stop offset="1" stop-color="#EAF3FD"/></linearGradient>
+    <filter id="${id}sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#15171C" flood-opacity=".18"/></filter>
+    <filter id="${id}blur"><feGaussianBlur stdDeviation="3"/></filter>
+    <clipPath id="${id}clip"><rect width="100%" height="100%" rx="36"/></clipPath>
+  </defs>`;
+
+function city(y0, w, seed, col = "#D3DDEC", win = "#E4EBF5") {
+  let s = "", x = -20, r = seed;
+  const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+  while (x < w) {
+    const bw = 70 + rnd() * 90, bh = 90 + rnd() * 170;
+    s += `<rect x="${x}" y="${y0 - bh}" width="${bw}" height="${bh + 40}" fill="${col}"/>`;
+    for (let wy = y0 - bh + 18; wy < y0 - 10; wy += 30)
+      for (let wx = x + 14; wx < x + bw - 20; wx += 26) s += `<rect x="${wx}" y="${wy}" width="12" height="16" rx="2" fill="${win}"/>`;
+    x += bw + 6 + rnd() * 30;
+  }
+  return s;
+}
+// Купол и минарет — силуэт старого города
+const mosque = (x, y, col) => `
+  <g fill="${col}"><rect x="${x}" y="${y - 70}" width="150" height="70"/><path d="M${x + 25},${y - 70} a50,55 0 0 1 100,0 z"/>
+  <rect x="${x + 165}" y="${y - 190}" width="22" height="190"/><path d="M${x + 160},${y - 190} h32 l-16,-28 z"/></g>`;
+
+// Человек. Начало координат — между ступнями, рост ~470.
+// o: {view:'front'|'back', skin, top, legs, hair:'short'|'scarf'|'doppi', scarf, armL, armR, mood, seated}
+function person(x, y, sc, o) {
+  const skin = o.skin || SKIN[0], top = o.top || "#2D6BF0", legs = o.legs || "#2E3A55";
+  const arm = (pts, side) => {
+    if (!pts) return "";
+    const d = "M" + pts.map((p) => p.join(",")).join(" L");
+    const h = pts[pts.length - 1];
+    return `<path d="${d}" fill="none" stroke="${top}" stroke-width="27" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="${h[0]}" cy="${h[1]}" r="14" fill="${skin}"/>`;
+  };
+  let lower;
+  if (o.seated) {
+    lower = `<rect x="-50" y="16" width="34" height="114" rx="14" fill="${legs}"/><rect x="16" y="16" width="34" height="114" rx="14" fill="${legs}"/>
+      <rect x="-62" y="-12" width="124" height="44" rx="20" fill="${legs}"/><circle cx="-33" cy="22" r="24" fill="${legs}"/><circle cx="33" cy="22" r="24" fill="${legs}"/>
+      <path d="M-33,4 a18,12 0 0 1 0,22 M33,4 a18,12 0 0 1 0,22" stroke="#fff" stroke-opacity=".15" stroke-width="4" fill="none"/>
+      <ellipse cx="-35" cy="134" rx="25" ry="11" fill="#1B1E24"/><ellipse cx="35" cy="134" rx="25" ry="11" fill="#1B1E24"/>`;
+  } else {
+    lower = `<rect x="-31" y="-192" width="28" height="182" rx="13" fill="${legs}"/><rect x="3" y="-192" width="28" height="182" rx="13" fill="${legs}"/>
+      <ellipse cx="-19" cy="-7" rx="25" ry="11" fill="#1B1E24"/><ellipse cx="19" cy="-7" rx="25" ry="11" fill="#1B1E24"/>`;
+  }
+  const ty = -165;                          // низ торса
+  const torso = `<path d="M-58,${ty} L-58,-310 Q-58,-362 -10,-362 L10,-362 Q58,-362 58,-310 L58,${ty} Q58,${ty + 10} 48,${ty + 10} L-48,${ty + 10} Q-58,${ty + 10} -58,${ty} Z" fill="${top}"/>`;
+  const hy = -425;
+  let head = `<rect x="-11" y="-388" width="22" height="34" fill="${skin}"/>`;
+  if (o.view === "back") {
+    head += `<circle cx="-45" cy="${hy + 4}" r="9" fill="${skin}"/><circle cx="45" cy="${hy + 4}" r="9" fill="${skin}"/><circle cx="0" cy="${hy}" r="46" fill="${skin}"/>`;
+    if (o.hair === "scarf") head += `<path d="M-56,${hy + 5} Q-58,${hy - 58} 0,${hy - 60} Q58,${hy - 58} 56,${hy + 5} L62,-345 Q0,-325 -62,-345 Z" fill="${o.scarf}"/>`;
+    else head += `<path d="M-47,${hy + 10} Q-52,${hy - 54} 0,${hy - 52} Q52,${hy - 54} 47,${hy + 10} Q30,${hy + 34} 0,${hy + 36} Q-30,${hy + 34} -47,${hy + 10} Z" fill="${HAIR}"/>`;
+    if (o.hair === "doppi") head += `<path d="M-40,${hy - 26} L-36,${hy - 56} Q0,${hy - 66} 36,${hy - 56} L40,${hy - 26} Q0,${hy - 36} -40,${hy - 26} Z" fill="#15171C"/>
+       <path d="M-38,${hy - 30} Q0,${hy - 40} 38,${hy - 30}" stroke="#fff" stroke-width="3" fill="none"/><path d="M-26,${hy - 48} q4,-9 9,0 q-4,6 -9,0 M-4,${hy - 51} q4,-9 9,0 q-4,6 -9,0 M18,${hy - 48} q4,-9 9,0 q-4,6 -9,0" fill="#fff" opacity=".85"/>`;
+  } else {
+    head += `<circle cx="0" cy="${hy}" r="46" fill="${skin}"/>`;
+    if (o.hair === "scarf") head += `<path d="M-54,${hy + 12} Q-60,${hy - 62} 0,${hy - 62} Q60,${hy - 62} 54,${hy + 12} L60,-350 Q0,-330 -60,-350 Z M-36,${hy - 14} Q-38,${hy + 36} 0,${hy + 40} Q38,${hy + 36} 36,${hy - 14} Q30,${hy - 40} 0,${hy - 42} Q-30,${hy - 40} -36,${hy - 14} Z" fill="${o.scarf}" fill-rule="evenodd"/>`;
+    else head += `<path d="M-47,${hy + 2} Q-50,${hy - 58} 0,${hy - 54} Q50,${hy - 58} 47,${hy + 2} Q44,${hy - 26} 20,${hy - 30} Q-10,${hy - 20} -38,${hy - 26} Q-46,${hy - 16} -47,${hy + 2} Z" fill="${HAIR}"/>`;
+    if (o.hair === "doppi") head += `<path d="M-40,${hy - 30} L-36,${hy - 58} Q0,${hy - 68} 36,${hy - 58} L40,${hy - 30} Q0,${hy - 40} -40,${hy - 30} Z" fill="#15171C"/>
+       <path d="M-38,${hy - 33} Q0,${hy - 43} 38,${hy - 33}" stroke="#fff" stroke-width="3" fill="none"/><path d="M-26,${hy - 51} q4,-9 9,0 q-4,6 -9,0 M-4,${hy - 54} q4,-9 9,0 q-4,6 -9,0 M18,${hy - 51} q4,-9 9,0 q-4,6 -9,0" fill="#fff" opacity=".85"/>`;
+    const m = o.mood || "smile";
+    if (m === "down") head += `<path d="M-22,${hy + 2} q7,5 14,0 M8,${hy + 2} q7,5 14,0" stroke="#2B2118" stroke-width="4" fill="none" stroke-linecap="round"/>
+       <path d="M-10,${hy + 24} q10,7 20,0" stroke="#8A4B3A" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+    else head += `<circle cx="-17" cy="${hy + 2}" r="5" fill="#2B2118"/><circle cx="17" cy="${hy + 2}" r="5" fill="#2B2118"/>`;
+    if (m === "confused") head += `<path d="M-30,${hy - 18} l20,-7 M10,${hy - 23} l22,9" stroke="#2B2118" stroke-width="5" stroke-linecap="round"/>
+       <path d="M-14,${hy + 26} q5,-6 10,0 t10,0 t10,0" stroke="#8A4B3A" stroke-width="4" fill="none" stroke-linecap="round"/>
+       <path d="M52,${hy - 12} q8,14 0,20 q-8,-6 0,-20 z" fill="#7CC4F5"/>`;
+    if (m === "smile") head += `<path d="M-14,${hy + 20} q14,14 28,0" stroke="#8A4B3A" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+  }
+  const up = o.seated ? 165 : 0;           // сидящий: начало координат — сиденье
+  return `<g transform="translate(${x},${y}) scale(${sc})">
+    <ellipse cx="0" cy="${o.seated ? 140 : 4}" rx="70" ry="10" fill="#15171C" opacity=".12"/>
+    ${lower}<g transform="translate(0,${up})">${torso}${o.extra || ""}${head}${arm(o.armL)}${arm(o.armR)}${o.over || ""}</g></g>`;
+}
+
+function busSide(x, y, w, col, num, dir, label) {  // dir 1 — едет вправо (номер сзади слева), -1 — влево
+  const h = 150, wins = [];
+  for (let i = 0; i < 5; i++) wins.push(`<rect x="${x + 70 + i * (w - 110) / 5}" y="${y + 22}" width="${(w - 110) / 5 - 12}" height="58" rx="8" fill="#2C3446"/>
+    <path d="M${x + 80 + i * (w - 110) / 5},${y + 70} l26,-40" stroke="#56627A" stroke-width="7"/>`);
+  const front = dir < 0 ? x + 14 : x + w - 60;
+  return `<g>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="20" fill="${col}"/>
+    <rect x="${x}" y="${y + 98}" width="${w}" height="16" fill="#fff" opacity=".85"/>
+    ${wins.join("")}
+    <rect x="${front}" y="${y + 18}" width="46" height="96" rx="8" fill="#2C3446"/>
+    <rect x="${dir < 0 ? x + 6 : x + w - 52}" y="${y - 12}" width="46" height="34" rx="8" fill="#15171C"/>
+    <text x="${dir < 0 ? x + 29 : x + w - 29}" y="${y + 12}" text-anchor="middle" font-size="24" font-weight="800" fill="#fff">${num}</text>
+    ${label ? `<text x="${x + w / 2}" y="${y + 140}" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">${label}</text>` : ""}
+    <circle cx="${x + 70}" cy="${y + h}" r="25" fill="#1F2229"/><circle cx="${x + 70}" cy="${y + h}" r="10" fill="#B8BFCC"/>
+    <circle cx="${x + w - 75}" cy="${y + h}" r="25" fill="#1F2229"/><circle cx="${x + w - 75}" cy="${y + h}" r="10" fill="#B8BFCC"/>
+  </g>`;
+}
+const qmark = (x, y, r, col) => `<g filter="url(#psh)"><circle cx="${x}" cy="${y}" r="${r}" fill="${col}"/><text x="${x}" y="${y + r * 0.38}" text-anchor="middle" font-size="${r * 1.15}" font-weight="800" fill="#fff">?</text></g>`;
+
+// ================= 1. Проблема =================
+function problem() {
+  const chat = [
+    ["in", "Abdulloh", "#E53935", "Chustga avtobus|soat nechida?"],
+    ["in", "Dilnoza", "#8B5CF6", "bilmadim..."],
+    ["in", "Sardor", "#22A55B", "kecha 14:00 da edi"],
+    ["out", "", "", "А сегодня есть?"],
+    ["in", "Abdulloh", "#E53935", "?? 🙁"],
+  ];
+  let cy = 92, bubbles = "";
+  chat.forEach(([k, n, c, t]) => {
+    const lines = t.split("|"), w = Math.min(180, 30 + Math.max(...lines.map((l) => l.length)) * 7.4), x = k === "in" ? 20 : 210 - w;
+    const h = (n ? 54 : 36) + (lines.length - 1) * 17;
+    bubbles += `<rect x="${x}" y="${cy}" width="${w}" height="${h}" rx="14" fill="${k === "in" ? "#fff" : "#DFF5C8"}"/>`;
+    if (n) bubbles += `<text x="${x + 12}" y="${cy + 20}" font-size="12" font-weight="700" fill="${c}">${n}</text>`;
+    lines.forEach((l, j) => bubbles += `<text x="${x + 12}" y="${cy + (n ? 41 : 24) + j * 17}" font-size="13" fill="#15171C">${l}</text>`);
+    cy += h + 10;
+  });
+  return defs("p") + `<g clip-path="url(#pclip)">
+    <rect width="860" height="980" fill="url(#psky)"/>
+    <ellipse cx="200" cy="120" rx="80" ry="22" fill="#fff" opacity=".8"/><ellipse cx="560" cy="80" rx="60" ry="16" fill="#fff" opacity=".7"/>
+    ${city(570, 860, 7)}${mosque(330, 570, "#C6D2E4")}
+    <rect y="560" width="860" height="170" fill="#4A505C"/>
+    <path d="M0,645 H860" stroke="#fff" stroke-width="6" stroke-dasharray="40 30" opacity=".7"/>
+    <!-- такси -->
+    <g transform="translate(30,600)">
+      <path d="M50,20 L80,-25 H175 L210,20 Z" fill="#F5C518"/><path d="M68,16 L88,-14 H125 V16 Z M135,16 V-14 H168 L190,16 Z" fill="#2C3446"/>
+      <rect x="110" y="-42" width="44" height="18" rx="4" fill="#15171C"/><text x="132" y="-28" text-anchor="middle" font-size="12" font-weight="800" fill="#F5C518">TAXI</text>
+      <rect x="10" y="15" width="245" height="62" rx="18" fill="#FACC15"/><rect x="10" y="44" width="245" height="8" fill="#15171C" opacity=".8"/>
+      <circle cx="65" cy="80" r="22" fill="#1F2229"/><circle cx="65" cy="80" r="9" fill="#B8BFCC"/><circle cx="200" cy="80" r="22" fill="#1F2229"/><circle cx="200" cy="80" r="9" fill="#B8BFCC"/>
+    </g>
+    <g filter="url(#psh)"><rect x="140" y="500" width="170" height="44" rx="22" fill="#fff"/><text x="225" y="529" text-anchor="middle" font-size="19" font-weight="700" fill="#E53935">Опять такси?</text></g>
+    <!-- уезжающий автобус -->
+    <g>${busSide(580, 545, 330, "#8B5CF6", "7", 1, "")}
+      <path d="M545,590 h-60 M555,620 h-80 M545,650 h-50" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".8"/></g>
+    <rect y="728" width="860" height="14" fill="#B6BDC9"/><rect y="742" width="860" height="240" fill="#E3E7EE"/>
+    <path d="M0,820 H860 M0,905 H860 M120,742 V980 M340,742 V980 M560,742 V980 M780,742 V980" stroke="#D2D8E1" stroke-width="3"/>
+    <!-- знак остановки без информации -->
+    <rect x="104" y="300" width="12" height="600" rx="5" fill="#8A93A3"/>
+    <g filter="url(#psh)"><rect x="52" y="270" width="116" height="116" rx="14" fill="#2D6BF0"/>
+      <rect x="72" y="296" width="76" height="52" rx="10" fill="#fff"/><rect x="80" y="304" width="25" height="20" rx="3" fill="#2D6BF0"/><rect x="114" y="304" width="25" height="20" rx="3" fill="#2D6BF0"/>
+      <circle cx="88" cy="352" r="8" fill="#fff"/><circle cx="132" cy="352" r="8" fill="#fff"/>
+      <text x="110" y="378" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">BEKAT</text></g>
+    <rect x="62" y="398" width="96" height="66" rx="8" fill="#fff" stroke="#C9CFD9" stroke-width="2"/>
+    <text x="110" y="442" text-anchor="middle" font-size="36" font-weight="800" fill="#C9CFD9">?</text>
+    <!-- растерянный пассажир -->
+    ${person(430, 905, 1.0, {
+      top: "#EF6C4A", mood: "confused", hair: "short",
+      armR: [[48, -345], [108, -400], [50, -455]],
+      armL: [[-48, -345], [-78, -255], [-18, -230]],
+      over: `<g transform="translate(-12,-262) rotate(-12)"><rect x="-19" y="-34" width="38" height="68" rx="7" fill="#15171C"/><rect x="-15" y="-29" width="30" height="56" rx="4" fill="#9CC1F5"/></g><circle cx="-18" cy="-230" r="14" fill="${SKIN[0]}"/>`,
+    })}
+    ${qmark(330, 410, 28, "#E53935")}${qmark(560, 380, 24, "#F59E0B")}${qmark(300, 340, 18, "#2D6BF0")}
+    <!-- мысль -->
+    <g filter="url(#psh)"><rect x="180" y="46" width="430" height="150" rx="40" fill="#fff"/>
+      <circle cx="400" cy="222" r="17" fill="#fff"/><circle cx="415" cy="262" r="11" fill="#fff"/><circle cx="425" cy="292" r="7" fill="#fff"/></g>
+    <text x="214" y="112" font-size="38" font-weight="800" fill="#15171C">Какой автобус?</text>
+    <text x="214" y="158" font-size="24" fill="#5B6270">Где пересесть? Когда придёт?</text>
+    <!-- Telegram-группа -->
+    <g transform="translate(630,200) rotate(6)" filter="url(#psh)">
+      <rect x="0" y="0" width="230" height="420" rx="30" fill="#15171C"/><rect x="10" y="10" width="210" height="400" rx="22" fill="#D5E3EE"/>
+      <path d="M10,32 Q10,10 32,10 H198 Q220,10 220,32 V74 H10 Z" fill="#fff"/>
+      <circle cx="38" cy="45" r="16" fill="#2AABEE"/><text x="38" y="51" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">A</text>
+      <text x="62" y="42" font-size="14" font-weight="800" fill="#15171C">Avtovokzal 🚌</text><text x="62" y="60" font-size="11" fill="#5B6270">1 248 участников</text>
+      ${bubbles}
+    </g>
+  </g>`;
+}
+
+// ================= 2. Остановка со схемой и QR =================
+function stop() {
+  const px = 470, py = 236, pw = 400, lx = 160;   // световой постер, табло
+  const sw = pw - 24, sh = sw * 2050 / 3000;
+  const rows = [["3", "#22A55B", "Chorsu", "4 мин"], ["1", "#E53935", "Taxtako‘prik", "9 мин"], ["2", "#1E6FE8", "Chorsu", "12 мин"]];
+  let led = "";
+  rows.forEach(([n, c, d, t], i) => {
+    const y = 236 + i * 30;
+    led += `<rect x="${lx + 12}" y="${y}" width="30" height="22" rx="5" fill="${c}"/><text x="${lx + 27}" y="${y + 17}" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">${n}</text>
+      <text x="${lx + 54}" y="${y + 17}" font-size="16" font-weight="600" fill="#FFD27A">${d}</text><text x="${lx + 256}" y="${y + 17}" text-anchor="end" font-size="16" font-weight="700" fill="#FFD27A">${t}</text>`;
+  });
+  return defs("s") + `<g clip-path="url(#sclip)">
+    <rect width="1280" height="1000" fill="url(#ssky)"/>
+    <ellipse cx="1000" cy="110" rx="90" ry="24" fill="#fff" opacity=".8"/><ellipse cx="300" cy="80" rx="70" ry="18" fill="#fff" opacity=".7"/>
+    ${city(640, 1280, 3)}${mosque(980, 640, "#C6D2E4")}
+    <rect y="630" width="1280" height="190" fill="#4A505C"/>
+    <path d="M0,720 H1280" stroke="#fff" stroke-width="6" stroke-dasharray="40 30" opacity=".7"/>
+    <!-- приезжает №3 -->
+    ${busSide(930, 560, 420, "#22A55B", "3", -1, "Yuksalish → Chorsu")}
+    <rect y="818" width="1280" height="14" fill="#B6BDC9"/><rect y="832" width="1280" height="170" fill="#E3E7EE"/>
+    <path d="M0,915 H1280 M160,832 V1000 M420,832 V1000 M680,832 V1000 M940,832 V1000 M1200,832 V1000" stroke="#D2D8E1" stroke-width="3"/>
+    <!-- павильон -->
+    <rect x="128" y="190" width="764" height="640" fill="url(#sglass)" stroke="#9FB3CF" stroke-width="3"/>
+    <rect x="118" y="190" width="14" height="642" fill="#3A404C"/><rect x="886" y="190" width="14" height="642" fill="#3A404C"/>
+    <g filter="url(#ssh)">
+      <path d="M90,150 H930 L912,196 H108 Z" fill="#1E2024"/>
+      <rect x="108" y="196" width="804" height="10" fill="#2D6BF0"/>
+    </g>
+    <text x="134" y="182" font-size="24" font-weight="800" fill="#fff">BEKAT</text>
+    <text x="226" y="182" font-size="22" font-weight="500" fill="#AFC6F5">Chorsu · Чорсу</text>
+    ${["1", "2", "3", "7"].map((n, i) => `<circle cx="${780 + i * 34}" cy="173" r="14" fill="${["#E53935", "#1E6FE8", "#22A55B", "#8B5CF6"][i]}"/><text x="${780 + i * 34}" y="179" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">${n}</text>`).join("")}
+    <!-- табло -->
+    <rect x="${lx + 26}" y="206" width="6" height="22" fill="#3A404C"/><rect x="${lx + 238}" y="206" width="6" height="22" fill="#3A404C"/>
+    <rect x="${lx}" y="222" width="270" height="104" rx="10" fill="#15171C" filter="url(#ssh)"/>
+    ${led}
+    <!-- световой постер со схемой -->
+    <g filter="url(#ssh)">
+      <rect x="${px}" y="${py}" width="${pw}" height="560" rx="10" fill="#fff" stroke="#1E2024" stroke-width="8"/>
+    </g>
+    <rect x="${px + 4}" y="${py + 4}" width="${pw - 8}" height="58" fill="#2D6BF0"/>
+    <text x="${px + 18}" y="${py + 30}" font-size="15" font-weight="800" fill="#fff" letter-spacing="1">СХЕМА АВТОБУСОВ НАМАНГАНА</text>
+    <text x="${px + 18}" y="${py + 51}" font-size="13" fill="#D6E3FF">Вы здесь: Chorsu · пересадки на 1, 2, 3, 7</text>
+    <image href="../../assets/scheme_ru.png" x="${px + 12}" y="${py + 70}" width="${sw}" height="${sh}"/>
+    <circle cx="${px + 12 + sw * 1232 / 2000}" cy="${py + 70 + sh * 818 / 1367}" r="14" fill="none" stroke="#E53935" stroke-width="4"/>
+    <rect x="${px + 12}" y="${py + 84 + sh}" width="${sw}" height="${560 - 98 - sh - 12}" rx="10" fill="#EEF1F6"/>
+    <image href="../assets/qr.png" x="${px + 24}" y="${py + 96 + sh}" width="${560 - 98 - sh - 36}" height="${560 - 98 - sh - 36}"/>
+    <text x="${px + 196}" y="${py + 130 + sh}" font-size="24" font-weight="800" fill="#15171C">Скачай Bekat</text>
+    <text x="${px + 196}" y="${py + 158 + sh}" font-size="14" fill="#5B6270">Наведи камеру на QR —</text>
+    <text x="${px + 196}" y="${py + 177 + sh}" font-size="14" fill="#5B6270">маршрут с пересадками</text>
+    <text x="${px + 196}" y="${py + 177 + sh + 30}" font-size="13" font-weight="700" fill="#2D6BF0">zedrubilan.github.io/bekat</text>
+    <!-- скамейка -->
+    <rect x="150" y="712" width="210" height="18" rx="6" fill="#B07A4E"/><rect x="162" y="728" width="10" height="98" fill="#3A404C"/><rect x="338" y="728" width="10" height="98" fill="#3A404C"/>
+    <!-- женщина на скамейке смотрит Bekat в телефоне -->
+    ${person(250, 724, 0.78, {
+      seated: true, top: "#22A55B", legs: "#6B4E9B", hair: "scarf", scarf: "#F59E0B", skin: SKIN[2], mood: "down",
+      armL: [[-48, -335], [-56, -250], [-14, -238]], armR: [[48, -335], [56, -250], [14, -238]],
+      over: `<g transform="translate(0,-262)"><rect x="-26" y="-44" width="52" height="88" rx="8" fill="#15171C"/><image href="../../assets/phone_02_home_ru.png" x="-22" y="-40" width="44" height="80" preserveAspectRatio="xMidYMid slice"/></g>
+        <circle cx="-18" cy="-232" r="14" fill="${SKIN[2]}"/><circle cx="18" cy="-232" r="14" fill="${SKIN[2]}"/>`,
+    })}
+    <!-- мужчина сканирует QR -->
+    ${person(415, 935, 1.0, {
+      view: "back", top: "#2D6BF0", legs: "#2E3A55", hair: "doppi", skin: SKIN[1],
+      armR: [[48, -345], [120, -312], [178, -298]],
+      armL: [[-48, -345], [-62, -260], [-52, -190]],
+      over: `<g transform="translate(192,-304)"><rect x="-20" y="-36" width="40" height="72" rx="8" fill="#15171C"/><circle cx="8" cy="-26" r="4" fill="#5B6270"/></g><circle cx="178" cy="-298" r="14" fill="${SKIN[1]}"/>`,
+    })}
+    <!-- что видит телефон -->
+    <path d="M640,600 C760,540 900,560 1040,470" stroke="#2D6BF0" stroke-width="3" stroke-dasharray="8 8" fill="none"/>
+    <g transform="translate(1040,150)" filter="url(#ssh)">
+      <rect x="0" y="0" width="200" height="330" rx="28" fill="#15171C"/><rect x="9" y="9" width="182" height="312" rx="20" fill="#2A2F38"/>
+      <image href="../assets/qr.png" x="45" y="60" width="110" height="110" opacity=".9"/>
+      <path d="M35,50 v-16 h16 M149,34 h16 v16 M165,164 v16 h-16 M51,180 h-16 v-16" stroke="#FFD27A" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <rect x="20" y="206" width="160" height="96" rx="16" fill="#fff"/>
+      <image href="../assets/icon_round.png" x="32" y="218" width="36" height="36"/>
+      <text x="76" y="234" font-size="15" font-weight="800" fill="#15171C">Bekat</text><text x="76" y="251" font-size="11" fill="#5B6270">Android · iPhone</text>
+      <rect x="32" y="264" width="136" height="28" rx="14" fill="#2D6BF0"/><text x="100" y="283" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">Скачать</text>
+    </g>
+  </g>`;
+}
+
+// ================= 3. Салон автобуса =================
+function inbus() {
+  const W = 1370, H = 1000, L = 360, R = 1010, T = 220, B = 640;
+  // точки боковых стен: s — 0 у края кадра, 1 у задней стены
+  const lw = (s, f) => { const x = L * s, top = T * s, bot = H - (H - B) * s; return [x, top + (bot - top) * f]; };
+  const rw = (s, f) => { const [x, y] = lw(s, f); return [W - x, y]; };
+  const quad = (fn, s0, s1, f0, f1, fill, extra = "") => {
+    const p = [fn(s0, f0), fn(s1, f0), fn(s1, f1), fn(s0, f1)].map((q) => q.join(",")).join(" ");
+    return `<polygon points="${p}" fill="${fill}" ${extra}/>`;
+  };
+  let walls = "";
+  [[0, 0.3], [0.36, 0.6], [0.65, 0.82], [0.86, 0.97]].forEach(([a, b]) => {
+    walls += quad(lw, a, b, 0.2, 0.52, "url(#bwin)") + quad(rw, a, b, 0.2, 0.52, "url(#bwin)");
+    // мелькающий город в окне
+    walls += quad(lw, a + (b - a) * 0.15, a + (b - a) * 0.55, 0.36, 0.52, "#C3D3EA") + quad(rw, a + (b - a) * 0.4, a + (b - a) * 0.85, 0.32, 0.52, "#C3D3EA");
+  });
+  // сиденья вдоль стен: спинки
+  let seats = "";
+  [0.97, 0.88, 0.78, 0.66].forEach((s) => {
+    const k = 1 - s * 0.62;
+    for (const side of [-1, 1]) {
+      const [wx, wy] = side < 0 ? lw(s, 0.75) : rw(s, 0.75);
+      const sw = 150 * k, sh = 120 * k;
+      const x = side < 0 ? wx + 4 : wx - sw - 4;
+      seats += `<rect x="${x}" y="${wy - sh * 0.75}" width="${sw}" height="${sh}" rx="${16 * k}" fill="#1F4FB8"/><rect x="${x + 6 * k}" y="${wy - sh * 0.75 + 8 * k}" width="${sw - 12 * k}" height="${sh * 0.35}" rx="${10 * k}" fill="#2D6BF0"/>`;
+    }
+  });
+  // поручни
+  const rail = (fn) => { const a = fn(0, 0.12), b = fn(1, 0.12); return `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#F5B400" stroke-width="10" stroke-linecap="round"/>`; };
+  let grips = "";
+  [0.25, 0.5, 0.72, 0.88].forEach((s) => {
+    for (const fn of [lw, rw]) {
+      const [x, y] = fn(s, 0.12), k = 1 - s * 0.6;
+      grips += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + 50 * k}" stroke="#F5B400" stroke-width="${7 * k}"/><circle cx="${x}" cy="${y + 64 * k}" r="${15 * k}" fill="none" stroke="#F5B400" stroke-width="${6 * k}"/>`;
+    }
+  });
+  const poles = `<line x1="1018" y1="200" x2="1018" y2="700" stroke="#F5B400" stroke-width="9" stroke-linecap="round"/>
+    <line x1="380" y1="40" x2="380" y2="300" stroke="#F5B400" stroke-width="10"/><circle cx="380" cy="330" r="30" fill="none" stroke="#F5B400" stroke-width="10"/>`;
+  // экран
+  const ew = 580, eh = ew * 9 / 16, ex = (W - ew) / 2, ey = 236;
+  return defs("b") + `<g clip-path="url(#bclip)">
+    <polygon points="0,0 ${W},0 ${R},${T} ${L},${T}" fill="#EEF1F6"/>
+    ${[0.2, 0.4, 0.6, 0.8].map((t) => `<line x1="${t * W}" y1="0" x2="${L + t * (R - L)}" y2="${T}" stroke="#DCE1E9" stroke-width="3"/>`).join("")}
+    <polygon points="380,0 470,0 600,${T} 560,${T}" fill="#fff"/><polygon points="${W - 470},0 ${W - 380},0 ${W - 560},${T} ${W - 600},${T}" fill="#fff"/>
+    <polygon points="0,0 ${L},${T} ${L},${B} 0,${H}" fill="#D9DEE6"/><polygon points="${W},0 ${R},${T} ${R},${B} ${W},${H}" fill="#D9DEE6"/>
+    <rect x="${L}" y="${T}" width="${R - L}" height="${B - T}" fill="#C9D0DB"/>
+    <polygon points="0,${H} ${W},${H} ${R},${B} ${L},${B}" fill="#7B8496"/>
+    <polygon points="${W / 2 - 200},${H} ${W / 2 + 200},${H} ${W / 2 + 70},${B} ${W / 2 - 70},${B}" fill="#8C95A6"/>
+    ${walls}${rail(lw)}${rail(rw)}${seats}${grips}
+    <!-- экран Bekat -->
+    <rect x="${ex - 6}" y="${T - 20}" width="10" height="30" fill="#3A404C"/><rect x="${ex + ew - 4}" y="${T - 20}" width="10" height="30" fill="#3A404C"/>
+    <g filter="url(#bsh)"><rect x="${ex - 14}" y="${ey - 14}" width="${ew + 28}" height="${eh + 28}" rx="14" fill="#15171C"/></g>
+    <image href="../../assets/f_bus_ru.png" x="${ex}" y="${ey}" width="${ew}" height="${eh}"/>
+    <!-- пассажиры -->
+    ${person(1075, 700, 0.42, { view: "back", top: "#F59E0B", hair: "short", armL: [[-48, -345], [-100, -390], [-136, -430]], armR: [[48, -345], [60, -260], [50, -180]] })}
+    ${poles}
+    ${person(1050, 1215, 1.15, { view: "back", top: "#8B5CF6", hair: "scarf", scarf: "#E53935", skin: SKIN[2] })}
+    <rect x="900" y="900" width="330" height="140" rx="26" fill="#1F4FB8"/><rect x="914" y="912" width="302" height="46" rx="16" fill="#2D6BF0"/>
+    ${person(300, 1300, 1.5, { view: "back", top: "#22A55B", hair: "doppi", skin: SKIN[1], armR: [[48, -345], [70, -480], [53, -633]], armL: [[-48, -345], [-62, -260], [-56, -190]] })}
+    <g filter="url(#bsh)"><rect x="470" y="700" width="330" height="96" rx="30" fill="#fff"/><path d="M480,770 l-40,40 l70,-25 z" fill="#fff"/></g>
+    <text x="496" y="740" font-size="22" font-weight="800" fill="#15171C">Мне на следующей!</text>
+    <text x="496" y="772" font-size="17" fill="#5B6270">А потом пересадка на №1</text>
+  </g>`;
+}
+
+document.getElementById("problem").innerHTML = problem();
+document.getElementById("stop").innerHTML = stop();
+document.getElementById("inbus").innerHTML = inbus();
+</script></body></html>

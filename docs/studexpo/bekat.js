@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const pptxgen = require("pptxgenjs");
+const sharp = require("sharp");
 const { icon, setup } = require("./common.js");
 const { applyTheme } = require("../deck/apply_theme.js");
 
@@ -28,6 +29,25 @@ const ROUTES = [["1", "E53935"], ["2", "1E6FE8"], ["3", "22A55B"], ["5", "F59E0B
   pres.author = "Кодиров Улугбек, Замалитдинов Салим";
   const { C, HEX, phone, circleIcon, card, headBody } = setup(pres, THEME);
 
+  // Картинка, обрезанная под рамку w×h (дюймы) со скруглёнными углами, как у карточек
+  const rounded = async (file, w, h, r = 0.14) => {
+    const dpi = 180, pw = Math.round(w * dpi), ph = Math.round(h * dpi), pr = Math.round(r * dpi);
+    const mask = Buffer.from(`<svg width="${pw}" height="${ph}"><rect width="${pw}" height="${ph}" rx="${pr}" ry="${pr}"/></svg>`);
+    const buf = await sharp(file).resize(pw, ph, { fit: "cover" }).composite([{ input: mask, blend: "dest-in" }]).png().toBuffer();
+    return "image/png;base64," + buf.toString("base64");
+  };
+  // Картинка сцены с подписью-плашкой в левом нижнем углу. Если рядом лежит фото
+  // (assets/photo_*.jpg), берём его, иначе нарисованную иллюстрацию scene_*.png.
+  // h — высота; ширина — по пропорциям файла, но не шире maxW (тогда фото обрезается).
+  const scene = async (s, kind, x, y, h, maxW, name, chip, photoChip) => {
+    const photo = A(`photo_${kind}.jpg`), file = photo || A(`scene_${kind}.png`);
+    if (photo) chip = photoChip;
+    const { width: iw, height: ih } = await sharp(file).metadata();
+    const w = Math.min(h * iw / ih, maxW);
+    if (x < 0) x = 12.63 - w; // x < 0: flush with the right margin
+    s.addImage({ data: await rounded(file, w, h), x, y, w, h, shadow: { type: "outer", color: HEX.dk1, opacity: 0.16, blur: 12, offset: 3, angle: 90 }, objectName: name, altText: (photo ? "Концепт: " : "Иллюстрация: ") + name });
+    s.addText(chip, { x: x + 0.15, y: y + h - 0.5, w: Math.min(w - 0.3, 0.3 + chip.length * 0.078), h: 0.34, shape: pres.shapes.ROUNDED_RECTANGLE, rectRadius: 0.08, fill: { color: C.text2, transparency: 10 }, fontSize: 11, bold: true, color: C.background1, margin: [0, 0.1, 0, 0.1], valign: "middle", isTextBox: true, objectName: "Подпись: " + name });
+  };
   const routeDots = (s, x, y, d, gap) => ROUTES.forEach(([n, col], i) =>
     s.addText(n, { x: x + i * (d + gap), y, w: d, h: d, shape: pres.shapes.OVAL, fill: { color: col }, line: { type: "none" }, fontSize: Math.round(d * 30), bold: true, color: "FFFFFF", align: "center", valign: "middle", margin: 0, isTextBox: true, objectName: "Маршрут " + n }));
 
@@ -51,24 +71,25 @@ const ROUTES = [["1", "E53935"], ["2", "1E6FE8"], ["3", "22A55B"], ["5", "F59E0B
   s.addText("ПРОБЛЕМА", { placeholder: "label" });
   s.addText("«Какой автобус? Где пересесть?»", { placeholder: "title" });
   const stats = [["731,3 тыс.", "жителей Намангана"], ["130", "современных автобусов"], ["10", "маршрутов по брутто-контракту"], ["0", "маршрутов на открытой карте (OSM)"]];
-  const sw = (11.93 - 3 * 0.3) / 4;
+  const sw = (7.05 - 0.25) / 2, sh = 1.12;
   stats.forEach(([n, l], i) => {
-    const x = 0.7 + i * (sw + 0.3);
-    card(s, x, 1.95, sw, 1.9, "Факт " + (i + 1));
-    headBody(s, n, l, { x: x + 0.25, y: 1.95, w: sw - 0.35, h: 1.9, valign: "middle", objectName: "Факт " + (i + 1) + " текст" }, [34, 15], [i === 3 ? C.accent2 : C.accent1, C.accent6]);
+    const x = 0.7 + (i % 2) * (sw + 0.25), y = 1.95 + Math.floor(i / 2) * (sh + 0.2);
+    card(s, x, y, sw, sh, "Факт " + (i + 1));
+    headBody(s, n, l, { x: x + 0.25, y, w: sw - 0.35, h: sh, valign: "middle", objectName: "Факт " + (i + 1) + " текст" }, [28, 13], [i === 3 ? C.accent2 : C.accent1, C.accent6]);
   });
   const probs = [
     ["MdAltRoute", "Маршруты меняются", "автобусов всё больше, схемы движения обновляются"],
     ["MdLocalTaxi", "Нет прямого автобуса — такси", "пассажир не знает, где можно пересесть"],
-    ["MdForum", "Расписание — в Telegram", "междугородние рейсы (Наманган–Чуст) знают только в группах вокзалов"],
+    ["MdForum", "Расписание — в Telegram", "рейсы Наманган–Чуст знают только в группах вокзалов"],
   ];
   for (let i = 0; i < probs.length; i++) {
     const [ic, h, d] = probs[i];
-    const x = 0.7 + i * ((11.93 - 0.6) / 3 + 0.3);
-    await circleIcon(s, ic, x, 4.55, 0.65, { c: C.accent2, t: 88 }, HEX.accent2, "Проблема " + (i + 1));
-    headBody(s, h, d, { x: x + 0.85, y: 4.52, w: (11.93 - 0.6) / 3 - 0.9, h: 1.3, objectName: "Проблема " + (i + 1) + " текст" }, [18, 15]);
+    const y = 4.55 + i * 0.66;
+    await circleIcon(s, ic, 0.7, y, 0.52, { c: C.accent2, t: 88 }, HEX.accent2, "Проблема " + (i + 1));
+    headBody(s, h, d, { x: 1.4, y: y - 0.03, w: 6.35, h: 0.62, objectName: "Проблема " + (i + 1) + " текст" }, [16, 13]);
   }
-  s.addText("Источники: namstat.uz (01.04.2026), yuz.uz (03.10.2026), gazeta.uz (24.09.2026), запрос к OpenStreetMap (14.10.2026)", { x: 0.7, y: 6.55, w: 11, h: 0.35, fontSize: 11, italic: true, color: C.accent6, margin: 0, isTextBox: true, objectName: "Источники" });
+  await scene(s, "problem", -1, 1.85, 5.1, 4.53, "Растерянный пассажир на остановке", "Иллюстрация", "Концепт");
+  s.addText("Источники: namstat.uz (01.04.2026), yuz.uz (03.10.2026), gazeta.uz (24.09.2026), OpenStreetMap (14.10.2026)", { x: 0.7, y: 6.6, w: 7.05, h: 0.4, fontSize: 9, italic: true, color: C.accent6, margin: 0, valign: "top", isTextBox: true, objectName: "Источники" });
   s.addNotes("В Намангане больше 730 тысяч жителей, по городу ходят 130 современных автобусов, 10 маршрутов работают по брутто-контракту. Но на открытой карте OpenStreetMap нет ни одного маршрута города. Если прямого автобуса нет, пассажир не знает, где пересесть, и едет на такси. А чтобы узнать, когда идёт автобус в Чуст, нужно состоять в Telegram-группе автовокзала.");
 
   // ================= 3. Решение =================
@@ -81,11 +102,12 @@ const ROUTES = [["1", "E53935"], ["2", "1E6FE8"], ["3", "22A55B"], ["5", "F59E0B
     ["phone_05_plan_ru", "MdDirectionsBus", "Варианты пути", "автобус + пересадка + пешком, время в минутах"],
     ["phone_06_trip_ru", "MdNavigation", "В пути", "остановки и время до цели"],
   ];
-  const colW = 3.8, gap = (11.93 - 3 * colW) / 2, ph = 3.95;
+  const colW = 3.8, gap = (11.93 - 3 * colW) / 2, ph = 3.6;
   for (let i = 0; i < cols.length; i++) {
     const [f, ic, h, d] = cols[i];
     const x = 0.7 + i * (colW + gap);
-    phone(s, A(f + ".png"), R, x + (colW - ph * R) / 2, 1.85, ph, h);
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 1.85, w: colW, h: 3.95, rectRadius: 0.2, fill: { color: C.accent1, transparency: 90 }, line: { type: "none" }, objectName: "Фон " + (i + 1) });
+    phone(s, A(f + ".png"), R, x + (colW - ph * R) / 2, 2.02, ph, h);
     await circleIcon(s, ic, x, 6.0, 0.55, { c: C.accent1 }, HEX.lt1, "Функция " + (i + 1));
     headBody(s, h, d, { x: x + 0.7, y: 5.95, w: colW - 0.7, h: 1.05, objectName: "Функция " + (i + 1) + " текст" });
   }
@@ -96,22 +118,24 @@ const ROUTES = [["1", "E53935"], ["2", "1E6FE8"], ["3", "22A55B"], ["5", "F59E0B
   s = pres.addSlide({ masterName: "Content", sectionTitle: "Технология" });
   s.addText("ГЛАВНАЯ ИДЕЯ", { placeholder: "label" });
   s.addText("Вся сеть — на одной схеме, как в метро", { placeholder: "title" });
-  card(s, 0.7, 1.9, 7.55, 5.17, "Рамка схемы");
-  s.addImage({ path: A("scheme_ru.png"), x: 1.125, y: 2.0, w: 6.7, h: 6.7 * 2050 / 3000, objectName: "Схема маршрутов", altText: "Схема автобусных маршрутов Намангана в стиле метро" });
-  s.addText("№1–3 — подтверждённые маршруты; №5, 7, 9 и промежуточные остановки — пример", { x: 0.95, y: 6.65, w: 7.1, h: 0.35, fontSize: 11, italic: true, color: C.accent6, margin: 0, isTextBox: true, objectName: "Пометка о данных" });
+  card(s, 0.7, 1.85, 6.5, 4.05, "Рамка схемы");
+  s.addImage({ path: A("scheme_ru.png"), x: 1.3, y: 1.9, w: 5.3, h: 5.3 * 2050 / 3000, objectName: "Схема маршрутов", altText: "Схема автобусных маршрутов Намангана в стиле метро" });
+  s.addText("№1–3 — подтверждённые маршруты; №5, 7, 9 и промежуточные остановки — пример", { x: 0.95, y: 5.5, w: 6.1, h: 0.3, fontSize: 10, italic: true, color: C.accent6, margin: 0, isTextBox: true, objectName: "Пометка о данных" });
+  await scene(s, "stop", 7.45, 1.85, 4.05, 5.18, "Остановка со схемой Bekat и QR-кодом", "Та же схема на остановке · QR → приложение", "Концепт: схема и QR на остановке");
   const ideas = [
-    ["MdSyncAlt", "Пересадки", "алгоритм RAPTOR соединяет несколько маршрутов"],
-    ["MdNearMe", "Ближайшая точка", "куда автобус не идёт — до ближайшей остановки"],
-    ["MdWifiOff", "В телефоне, без интернета", "маршрут считается меньше чем за секунду"],
+    ["MdSyncAlt", "Пересадки", "RAPTOR соединяет несколько маршрутов"],
+    ["MdNearMe", "Ближайшая точка", "нет автобуса — ведём до ближайшей остановки"],
+    ["MdWifiOff", "Без интернета", "путь считается в телефоне меньше чем за секунду"],
     ["MdViewInAr", "3D-карта города", "MapLibre + OpenStreetMap, автобусы по расписанию"],
   ];
+  const iw = (11.93 - 3 * 0.25) / 4;
   for (let i = 0; i < ideas.length; i++) {
     const [ic, h, d] = ideas[i];
-    const y = 1.9 + i * 1.3;
-    await circleIcon(s, ic, 8.65, y + 0.05, 0.6, { c: C.accent1, t: 88 }, HEX.accent1, "Идея " + (i + 1));
-    headBody(s, h, d, { x: 9.45, y, w: 3.2, h: 1.15, objectName: "Идея " + (i + 1) + " текст" }, [18, 14]);
+    const x = 0.7 + i * (iw + 0.25);
+    await circleIcon(s, ic, x, 6.12, 0.5, { c: C.accent1, t: 88 }, HEX.accent1, "Идея " + (i + 1));
+    headBody(s, h, d, { x: x + 0.62, y: 6.08, w: iw - 0.62, h: 0.9, objectName: "Идея " + (i + 1) + " текст" }, [15, 12]);
   }
-  s.addNotes("Главная идея — вся автобусная сеть на одной схеме, как карта метро: сразу видно, где маршруты пересекаются. Внутри работает алгоритм RAPTOR: он находит путь с пересадками прямо в телефоне, без интернета, меньше чем за секунду. А если до места автобус не идёт, Bekat ведёт до ближайшей остановки. Честно: подтверждены маршруты 1–3, остальные — пример до полевого сбора данных.");
+  s.addNotes("Главная идея — вся автобусная сеть на одной схеме, как карта метро: сразу видно, где маршруты пересекаются. Внутри работает алгоритм RAPTOR: он находит путь с пересадками прямо в телефоне, без интернета, меньше чем за секунду. А если до места автобус не идёт, Bekat ведёт до ближайшей остановки. Эту же схему можно повесить на остановке: человек видит всю сеть, наводит камеру на QR-код и сразу скачивает приложение. Честно: подтверждены маршруты 1–3, остальные — пример до полевого сбора данных.");
 
   // ================= 5. Отличие и модель =================
   pres.addSection({ title: "Ценность" });
@@ -152,34 +176,22 @@ const ROUTES = [["1", "E53935"], ["2", "1E6FE8"], ["3", "22A55B"], ["5", "F59E0B
   pres.addSection({ title: "Bekat 2.0" });
   s = pres.addSlide({ masterName: "Content", sectionTitle: "Bekat 2.0" });
   s.addText("BEKAT 2.0 · УЖЕ В ПРОТОТИПЕ", { placeholder: "label" });
-  s.addText("Табло, экран в автобусе и данные для города", { placeholder: "title" });
-  const shots = [
-    ["f_board_ru.png", "Табло на остановке"],
-    ["f_bus_ru.png", "Экран в салоне"],
-    ["f_demand_ru.png", "Карта спроса"],
-    ["f_community_ru.png", "Маршруты от жителей"],
-  ];
-  const tw = 4.4, th = tw * 9 / 16, tg = 0.15, ty = 1.85;
-  shots.forEach(([f, cap], i) => {
-    const x = 0.7 + (i % 2) * (tw + tg), y = ty + Math.floor(i / 2) * (th + tg);
-    s.addImage({ path: A(f), x, y, w: tw, h: th, rounding: false, shadow: { type: "outer", color: HEX.dk1, opacity: 0.18, blur: 10, offset: 3, angle: 90 }, objectName: "Экран " + (i + 1), altText: "Скриншот прототипа: " + cap });
-    s.addText((i + 1) + "  " + cap, { x: x + 0.12, y: y + th - 0.47, w: 2.3, h: 0.35, shape: pres.shapes.ROUNDED_RECTANGLE, rectRadius: 0.08, fill: { color: C.text2, transparency: 8 }, fontSize: 12, bold: true, color: C.background1, margin: [0, 0.1, 0, 0.1], valign: "middle", isTextBox: true, objectName: "Подпись " + (i + 1) });
-  });
-  const fx = 0.7 + 2 * tw + tg + 0.35, fw = 12.63 - fx;
+  s.addText("Экран в автобусе, табло и данные для города", { placeholder: "title" });
+  await scene(s, "inbus", 0.7, 1.85, 4.62, 6.33, "Экран Bekat в салоне автобуса", "1  Экран в салоне", "1  Экран в салоне · концепт");
+  s.addText("Следующая остановка крупно, где пересесть и вся линия — пассажир сразу понимает, куда едет автобус", { x: 0.7, y: 6.55, w: 6.33, h: 0.45, fontSize: 12, color: C.accent6, margin: 0, valign: "top", isTextBox: true, objectName: "Подпись салона" });
   const feats = [
-    ["MdDepartureBoard", "Табло", "любой экран с браузером: какой автобус, через сколько минут, куда идёт; междугородние рейсы"],
-    ["MdDirectionsBus", "В салоне", "следующая остановка крупно, пересадки, вся линия"],
-    ["MdInsights", "Для хокимията", "где ищут, но автобуса нет — довод для новой остановки"],
-    ["MdGroups", "От жителей", "дамасы и маршрутки: добавляют и подтверждают"],
+    ["f_board_ru.png", "2. Табло на остановке", "любой экран с браузером: какой автобус, через сколько минут; междугородние рейсы"],
+    ["f_demand_ru.png", "3. Карта спроса", "где ищут, но автобуса нет — довод хокимияту для новой остановки"],
+    ["f_community_ru.png", "4. Маршруты от жителей", "дамасы и маршрутки: добавляют и подтверждают сами"],
   ];
-  for (let i = 0; i < feats.length; i++) {
-    const [ic, h, d] = feats[i];
-    const y = ty + i * 1.1;
-    await circleIcon(s, ic, fx, y + 0.02, 0.5, { c: C.accent1, t: 88 }, HEX.accent1, "Bekat 2.0 " + (i + 1));
-    headBody(s, (i + 1) + ". " + h, d, { x: fx + 0.65, y, w: fw - 0.65, h: 1.0, objectName: "Bekat 2.0 текст " + (i + 1) }, [15, 12]);
+  const fx = 7.35, tw = 2.35, th = tw * 9 / 16;
+  for (const [i, [f, h, d]] of feats.entries()) {
+    const y = 1.85 + i * (th + 0.22);
+    s.addImage({ data: await rounded(A(f), tw, th, 0.1), x: fx, y, w: tw, h: th, shadow: { type: "outer", color: HEX.dk1, opacity: 0.18, blur: 10, offset: 3, angle: 90 }, objectName: "Экран " + (i + 2), altText: "Скриншот прототипа: " + h });
+    headBody(s, h, d, { x: fx + tw + 0.2, y: y + 0.02, w: 12.63 - fx - tw - 0.2, h: th, objectName: "Bekat 2.0 текст " + (i + 2) }, [15, 12]);
   }
-  s.addText("Пример: данные на этих экранах — демонстрационные", { x: fx, y: 6.45, w: fw, h: 0.5, shape: pres.shapes.ROUNDED_RECTANGLE, rectRadius: 0.08, fill: { color: C.accent4, transparency: 82 }, fontSize: 11, bold: true, color: C.text1, margin: [0, 0.1, 0, 0.1], valign: "middle", isTextBox: true, objectName: "Пометка пример" });
-  s.addNotes("Следующие этапы мы уже можем показать вживую — на демо-данных. Первое: табло на остановке. Это та же веб-страница приложения, ей хватает дешёвого экрана с браузером: какой автобус через сколько минут, куда он идёт, а на автовокзале — междугородние рейсы, которые сейчас знают только в Telegram-группах. Второе: экран в салоне — следующая остановка крупно и где пересесть. Третье: карта спроса для хокимията — где люди ищут маршрут, но автобуса нет; это довод, где нужна новая остановка. И четвёртое: дамасы и маршрутки, которые добавляют и подтверждают сами жители. Все цифры на этих экранах — пример.");
+  s.addText("Пример: данные на этих экранах — демонстрационные", { x: fx, y: 6.5, w: 12.63 - fx, h: 0.45, shape: pres.shapes.ROUNDED_RECTANGLE, rectRadius: 0.08, fill: { color: C.accent4, transparency: 82 }, fontSize: 11, bold: true, color: C.text1, margin: [0, 0.1, 0, 0.1], valign: "middle", isTextBox: true, objectName: "Пометка пример" });
+  s.addNotes("Следующие этапы мы уже можем показать вживую — на демо-данных. Первое: экран в салоне — следующая остановка крупно и где пересесть, так пассажир сразу понимает, куда едет его автобус. Второе: табло на остановке. Это та же веб-страница приложения, ей хватает дешёвого экрана с браузером: какой автобус через сколько минут, куда он идёт, а на автовокзале — междугородние рейсы, которые сейчас знают только в Telegram-группах. Третье: карта спроса для хокимията — где люди ищут маршрут, но автобуса нет; это довод, где нужна новая остановка. И четвёртое: дамасы и маршрутки, которые добавляют и подтверждают сами жители. Все цифры на этих экранах — пример.");
 
   // ================= 7. Статус и следующий шаг =================
   pres.addSection({ title: "Следующий шаг" });
