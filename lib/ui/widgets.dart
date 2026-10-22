@@ -453,62 +453,6 @@ class _IsoBusPainter extends CustomPainter {
       old.color != color || old.number != number;
 }
 
-/// Top-down bus sprite for the map (rotated by heading, lies on the 3D ground).
-Future<Uint8List> busSprite(Color color) async {
-  const w = 44.0, h = 96.0, pad = 10.0;
-  final rec = ui.PictureRecorder();
-  final c = Canvas(rec);
-  final body = RRect.fromRectAndRadius(
-    const Rect.fromLTWH(pad, pad, w, h),
-    const Radius.circular(12),
-  );
-  c.drawRRect(
-    body.shift(const Offset(0, 4)),
-    Paint()
-      ..color = const Color(0x44101830)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
-  );
-  c.drawRRect(body, Paint()..color = color);
-  c.drawRRect(
-    body.deflate(1.5),
-    Paint()
-      ..color = Colors.white.withValues(alpha: 0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2,
-  );
-  // windshield at the front (top of sprite = heading)
-  c.drawRRect(
-    RRect.fromRectAndRadius(
-      const Rect.fromLTWH(pad + 5, pad + 4, w - 10, 12),
-      const Radius.circular(5),
-    ),
-    Paint()..color = const Color(0xFF26303F),
-  );
-  // roof units
-  final roof = HSLColor.fromColor(color);
-  final light = roof
-      .withLightness((roof.lightness + 0.2).clamp(0, 1))
-      .toColor();
-  c.drawRRect(
-    RRect.fromRectAndRadius(
-      const Rect.fromLTWH(pad + 8, pad + 26, w - 16, 26),
-      const Radius.circular(5),
-    ),
-    Paint()..color = light,
-  );
-  c.drawRRect(
-    RRect.fromRectAndRadius(
-      const Rect.fromLTWH(pad + 8, pad + 60, w - 16, 26),
-      const Radius.circular(5),
-    ),
-    Paint()..color = light,
-  );
-  final pic = rec.endRecording();
-  final img = await pic.toImage((w + pad * 2).toInt(), (h + pad * 2).toInt());
-  final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
-  return bytes!.buffer.asUint8List();
-}
-
 /// Little white disc with the route number, shown above each bus.
 Future<Uint8List> busBadge(BusRoute r) async {
   const d = 46.0;

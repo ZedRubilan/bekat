@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -75,13 +77,47 @@ class _SchemeScreenState extends State<SchemeScreen>
   final _tc = TransformationController();
   late final _Geometry geo = _Geometry(widget.app.net);
   String? _focus;
+  Size _view = Size.zero;
+  bool _clamping = false;
+
+  // free space for the top bar and the bottom caption
+  static const _top = 84.0, _bottom = 60.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _tc.addListener(_clamp);
+  }
 
   @override
   void dispose() {
     _draw.dispose();
     _loop.dispose();
+    _tc.removeListener(_clamp);
     _tc.dispose();
     super.dispose();
+  }
+
+  /// Our own bounds: InteractiveViewer pins a scheme smaller than the screen
+  /// to the top-left corner. Here it stays centred when it fits, and can't
+  /// be dragged away when it doesn't.
+  void _clamp() {
+    if (_clamping || _view == Size.zero) return;
+    final m = _tc.value;
+    final sc = m.entry(0, 0);
+    final t = m.getTranslation();
+    double fix(double v, double content, double view, double lo, double hi) {
+      final avail = view - lo - hi;
+      if (content <= avail) return lo + (avail - content) / 2;
+      return v.clamp(view - hi - content - 40, lo + 40);
+    }
+
+    final x = fix(t.x, _canvas.width * sc, _view.width, 0, 0);
+    final y = fix(t.y, _canvas.height * sc, _view.height, _top, _bottom);
+    if ((x - t.x).abs() < 0.5 && (y - t.y).abs() < 0.5) return;
+    _clamping = true;
+    _tc.value = m.clone()..setTranslationRaw(x, y, 0);
+    _clamping = false;
   }
 
   void _tapStop(Stop s) => showModalBottomSheet(
@@ -110,6 +146,7 @@ class _SchemeScreenState extends State<SchemeScreen>
               LayoutBuilder(
                 builder: (context, box) {
                   final fit = box.maxWidth / _canvas.width;
+                  _view = box.biggest;
                   if (_tc.value.isIdentity()) {
                     // fill the height, centred on the city centre (Chorsu)
                     final sc = math.min(
@@ -121,31 +158,58 @@ class _SchemeScreenState extends State<SchemeScreen>
                         84 + ((box.maxHeight - 150) - _canvas.height * sc) / 2;
                     _tc.value = Matrix4.identity()
                       ..translateByDouble(box.maxWidth / 2 - cx * sc, ty, 0, 1)
-                      ..scaleByDouble(sc, sc, 1, 1);
+                      // z too: InteractiveViewer reads the scale with
+                      // getMaxScaleOnAxis, a z of 1 broke its zoom limits
+                      ..scaleByDouble(sc, sc, sc, 1);
                   }
                   return InteractiveViewer(
                     transformationController: _tc,
                     constrained: false,
                     minScale: fit * 0.8,
                     maxScale: 4,
-                    boundaryMargin: const EdgeInsets.all(240),
+                    // bounds are kept by [_clamp]
+                    boundaryMargin: const EdgeInsets.all(double.infinity),
                     child: GestureDetector(
                       onTapUp: (d) {
                         final s = geo.hit(d.localPosition);
                         if (s != null) _tapStop(s);
                       },
-                      child: AnimatedBuilder(
-                        animation: Listenable.merge([_draw, _loop]),
-                        builder: (_, _) => CustomPaint(
-                          size: _canvas,
-                          painter: _SchemePainter(
-                            geo,
-                            app,
-                            Curves.easeInOutCubic.transform(_draw.value),
-                            _loop.value,
-                            _focus,
-                            Lang.i.code,
-                          ),
+                      child: SizedBox.fromSize(
+                        size: _canvas,
+                        child: Stack(
+                          children: [
+                            // lines, stations and labels: repainted only
+                            // during the draw-in or when the focus changes
+                            RepaintBoundary(
+                              child: AnimatedBuilder(
+                                animation: _draw,
+                                builder: (_, _) => CustomPaint(
+                                  size: _canvas,
+                                  painter: _NetworkPainter(
+                                    geo,
+                                    Curves.easeInOutCubic.transform(
+                                      _draw.value,
+                                    ),
+                                    _focus,
+                                    Lang.i.code,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // moving buses and the "you are here" pulse
+                            RepaintBoundary(
+                              child: CustomPaint(
+                                size: _canvas,
+                                painter: _LivePainter(
+                                  geo,
+                                  app,
+                                  _draw,
+                                  _loop,
+                                  _focus,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -289,12 +353,43 @@ class _Geometry {
         }
       }
       paths[r.id] = path;
+      metrics[r.id] = path.computeMetrics().toList();
     }
+    final dots = <double>[];
+    for (var x = 0.0; x < _canvas.width; x += _unit / 2) {
+      for (var y = 0.0; y < _canvas.height; y += _unit / 2) {
+        dots.addAll([x, y]);
+      }
+    }
+    grid = Float32List.fromList(dots);
   }
 
   final Network net;
   final routeSegs = <String, List<List<Offset>>>{};
   final paths = <String, Path>{};
+  final metrics = <String, List<ui.PathMetric>>{};
+  late final Float32List grid;
+  final _labels = <String, TextPainter>{};
+
+  /// Laid-out stop label; cached for the steady states (full and faded).
+  TextPainter label(Stop s, String lang, bool hub, double a) {
+    TextPainter make() => TextPainter(
+      text: TextSpan(
+        text: s.name.of(lang),
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: hub ? 14 : 12.5,
+          fontWeight: hub ? FontWeight.w800 : FontWeight.w600,
+          color: C.ink.withValues(alpha: a),
+          height: 1.1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 2,
+    )..layout(maxWidth: 120);
+    if (a != 1 && a != 0.25) return make();
+    return _labels.putIfAbsent('${s.id}|$lang|$a', make);
+  }
 
   static String _key(String a, String b) =>
       a.compareTo(b) < 0 ? '$a|$b' : '$b|$a';
@@ -366,31 +461,28 @@ class _Geometry {
   }
 }
 
-class _SchemePainter extends CustomPainter {
-  _SchemePainter(
-    this.g,
-    this.app,
-    this.drawT,
-    this.loop,
-    this.focus,
-    this.lang,
-  );
+double _pop(double drawT) => ((drawT - 0.6) / 0.4).clamp(0.0, 1.0);
+
+/// Static layer: grid, lines, stations, labels.
+class _NetworkPainter extends CustomPainter {
+  _NetworkPainter(this.g, this.drawT, this.focus, this.lang);
   final _Geometry g;
-  final AppState app;
-  final double drawT, loop;
+  final double drawT;
   final String? focus;
   final String lang;
 
   @override
   void paint(Canvas c, Size size) {
-    // faint grid dots, like squared paper
-    final dot = Paint()..color = const Color(0xFFEFF2F6);
-    for (var x = 0.0; x < size.width; x += _unit / 2) {
-      for (var y = 0.0; y < size.height; y += _unit / 2) {
-        c.drawCircle(Offset(x, y), 1.2, dot);
-      }
-    }
-    final routes = app.net.routes;
+    // faint grid dots, like squared paper: one draw call
+    c.drawRawPoints(
+      ui.PointMode.points,
+      g.grid,
+      Paint()
+        ..color = const Color(0xFFE8ECF2)
+        ..strokeWidth = 2.4
+        ..strokeCap = StrokeCap.round,
+    );
+    final routes = g.net.routes;
     // lines (staggered draw-in)
     for (var i = 0; i < routes.length; i++) {
       final r = routes[i];
@@ -406,128 +498,42 @@ class _SchemePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
-      for (final m in g.paths[r.id]!.computeMetrics()) {
-        c.drawPath(m.extractPath(0, m.length * t), paint);
+      if (t >= 1) {
+        c.drawPath(g.paths[r.id]!, paint);
+      } else {
+        for (final m in g.metrics[r.id]!) {
+          c.drawPath(m.extractPath(0, m.length * t), paint);
+        }
       }
     }
     if (drawT < 0.6) return;
-    final pop = ((drawT - 0.6) / 0.4).clamp(0.0, 1.0);
-
-    // buses
-    for (final b in app.sched.positions(app.now)) {
-      final r = b.dir.route;
-      if (focus != null && focus != r.id) continue;
-      final i = b.lastStop;
-      final d = b.dir;
-      if (i >= d.stops.length - 1) continue;
-      final f = ((b.meters - d.stopAt[i]) / (d.stopAt[i + 1] - d.stopAt[i]))
-          .clamp(0.0, 1.0);
-      // schematic segments are stored in direction 0
-      final n = d.stops.length - 1;
-      final p = d.dir == 0
-          ? g.along(r.id, i, f)
-          : g.along(r.id, n - 1 - i, 1 - f);
-      // a small capsule pointing along the line, so buses never look like stops
-      final ahead = d.dir == 0
-          ? g.along(r.id, i, (f + 0.02).clamp(0.0, 1.0))
-          : g.along(r.id, n - 1 - i, (1 - f - 0.02).clamp(0.0, 1.0));
-      var v = ahead - p;
-      if (v.distance < 0.01) v = const Offset(1, 0);
-      c.save();
-      c.translate(p.dx, p.dy);
-      c.rotate(math.atan2(v.dy, v.dx));
-      final body = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset.zero, width: 22 * pop, height: 12 * pop),
-        Radius.circular(6 * pop),
-      );
-      c.drawRRect(
-        body.shift(const Offset(0, 2)),
-        Paint()
-          ..color = const Color(0x40101830)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
-      );
-      c.drawRRect(body.inflate(2.2), Paint()..color = Colors.white);
-      c.drawRRect(body, Paint()..color = r.color);
-      // windshield at the front
-      c.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(5 * pop, -4 * pop, 4 * pop, 8 * pop),
-          Radius.circular(2 * pop),
-        ),
-        Paint()..color = Colors.white.withValues(alpha: 0.85),
-      );
-      c.restore();
-    }
+    final pop = _pop(drawT);
 
     // stations
-    for (final s in app.net.stops.values) {
+    for (final s in g.net.stops.values) {
       final pos = schemePos[s.id];
       if (pos == null) continue;
       final p = g.pt(s.id);
       final hub = s.routeIds.length > 1;
       final faded = focus != null && !s.routeIds.contains(focus);
       final a = faded ? 0.25 : 1.0;
-      if (hub) {
-        final rr = (6 + 2.5 * s.routeIds.length) * pop;
-        c.drawCircle(p, rr, Paint()..color = Colors.white.withValues(alpha: a));
-        c.drawCircle(
-          p,
-          rr,
-          Paint()
-            ..color = C.ink.withValues(alpha: a)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 3,
-        );
-      } else {
-        final col = app.net.route(s.routeIds.first).color;
-        c.drawCircle(
-          p,
-          6 * pop,
-          Paint()..color = Colors.white.withValues(alpha: a),
-        );
-        c.drawCircle(
-          p,
-          6 * pop,
-          Paint()
-            ..color = col.withValues(alpha: a)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 3,
-        );
-      }
-      _label(c, s.name.of(lang), p, pos.$3, hub, a * pop);
+      final rr = hub ? (6 + 2.5 * s.routeIds.length) * pop : 6 * pop;
+      final ring = hub ? C.ink : g.net.route(s.routeIds.first).color;
+      c.drawCircle(p, rr, Paint()..color = Colors.white.withValues(alpha: a));
+      c.drawCircle(
+        p,
+        rr,
+        Paint()
+          ..color = ring.withValues(alpha: a)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3,
+      );
+      _label(c, s, p, pos.$3, hub, a * pop);
     }
-    // "you are here" pulse at the nearest stop
-    final (near, _) = app.net.nearestStop(app.origin.pos);
-    final pn = g.pt(near.id);
-    c.drawCircle(
-      pn,
-      14 + 16 * loop,
-      Paint()..color = C.blue.withValues(alpha: 0.35 * (1 - loop) * pop),
-    );
   }
 
-  void _label(
-    Canvas c,
-    String text,
-    Offset p,
-    String side,
-    bool hub,
-    double a,
-  ) {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          fontFamily: 'Inter',
-          fontSize: hub ? 14 : 12.5,
-          fontWeight: hub ? FontWeight.w800 : FontWeight.w600,
-          color: C.ink.withValues(alpha: a),
-          height: 1.1,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      maxLines: 2,
-    )..layout(maxWidth: 120);
+  void _label(Canvas c, Stop s, Offset p, String side, bool hub, double a) {
+    final tp = g.label(s, lang, hub, a);
     const m = 15.0;
     final o = switch (side) {
       'r' => Offset(m, -tp.height / 2),
@@ -554,7 +560,80 @@ class _SchemePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SchemePainter o) => true;
+  bool shouldRepaint(covariant _NetworkPainter o) =>
+      o.drawT != drawT || o.focus != focus || o.lang != lang;
+}
+
+/// Live layer: buses and the pulse. Repaints on [loop] without rebuilding
+/// any widgets.
+class _LivePainter extends CustomPainter {
+  _LivePainter(this.g, this.app, this.draw, this.loop, this.focus)
+    : super(repaint: loop);
+  final _Geometry g;
+  final AppState app;
+  final Animation<double> draw, loop;
+  final String? focus;
+
+  static final _shadow = Paint()..color = const Color(0x30101830);
+  static final _white = Paint()..color = Colors.white;
+  static final _glass = Paint()..color = const Color(0xD9FFFFFF);
+
+  @override
+  void paint(Canvas c, Size size) {
+    final drawT = Curves.easeInOutCubic.transform(draw.value);
+    if (drawT < 0.6) return;
+    final pop = _pop(drawT);
+    for (final b in app.sched.positions(app.now)) {
+      final r = b.dir.route;
+      if (focus != null && focus != r.id) continue;
+      final i = b.lastStop;
+      final d = b.dir;
+      if (i >= d.stops.length - 1) continue;
+      final f = ((b.meters - d.stopAt[i]) / (d.stopAt[i + 1] - d.stopAt[i]))
+          .clamp(0.0, 1.0);
+      // schematic segments are stored in direction 0
+      final n = d.stops.length - 1;
+      final p = d.dir == 0
+          ? g.along(r.id, i, f)
+          : g.along(r.id, n - 1 - i, 1 - f);
+      // a small capsule pointing along the line, so buses never look like stops
+      final ahead = d.dir == 0
+          ? g.along(r.id, i, (f + 0.02).clamp(0.0, 1.0))
+          : g.along(r.id, n - 1 - i, (1 - f - 0.02).clamp(0.0, 1.0));
+      var v = ahead - p;
+      if (v.distance < 0.01) v = const Offset(1, 0);
+      c.save();
+      c.translate(p.dx, p.dy);
+      c.rotate(math.atan2(v.dy, v.dx));
+      final body = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset.zero, width: 22 * pop, height: 12 * pop),
+        Radius.circular(6 * pop),
+      );
+      c.drawRRect(body.inflate(2.2).shift(const Offset(0, 2)), _shadow);
+      c.drawRRect(body.inflate(2.2), _white);
+      c.drawRRect(body, Paint()..color = r.color);
+      // windshield at the front
+      c.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(5 * pop, -4 * pop, 4 * pop, 8 * pop),
+          Radius.circular(2 * pop),
+        ),
+        _glass,
+      );
+      c.restore();
+    }
+    // "you are here" pulse at the nearest stop
+    final (near, _) = app.net.nearestStop(app.origin.pos);
+    final l = loop.value;
+    c.drawCircle(
+      g.pt(near.id),
+      14 + 16 * l,
+      Paint()..color = C.blue.withValues(alpha: 0.35 * (1 - l) * pop),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _LivePainter o) => o.focus != focus;
 }
 
 class _StopSheet extends StatelessWidget {

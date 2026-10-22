@@ -193,6 +193,16 @@ const _s = <String, Map<String, String>>{
   'settings': {'uz': 'Sozlamalar', 'ru': 'Настройки', 'en': 'Settings'},
   'language': {'uz': 'Til', 'ru': 'Язык', 'en': 'Language'},
   'bigText': {'uz': 'Yirik yozuv', 'ru': 'Крупный текст', 'en': 'Large text'},
+  'flatMap': {
+    'uz': 'Xarita tepadan (2D)',
+    'ru': 'Карта сверху (2D)',
+    'en': 'Top-down map (2D)',
+  },
+  'flatMapSub': {
+    'uz': 'Sekin telefonlarda tezroq',
+    'ru': 'Быстрее на слабых телефонах',
+    'en': 'Faster on low-end phones',
+  },
   'about': {'uz': 'Ilova haqida', 'ru': 'О приложении', 'en': 'About'},
   'end': {'uz': 'Tugatish', 'ru': 'Завершить', 'en': 'End'},
   'onBus': {'uz': 'Avtobusdasiz', 'ru': 'Вы в автобусе', 'en': 'On the bus'},

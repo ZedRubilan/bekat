@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
@@ -38,6 +40,11 @@ class BekatMapState extends State<BekatMap> {
   Geo? _shownOrigin;
   bool _busy = false;
   int _frame = 0;
+  bool? _shownFlat;
+  String _pinsJson = '';
+
+  /// Last known camera zoom: 3D buses are scaled up when zoomed out.
+  double _zoom = 12.3;
 
   AppState get app => widget.app;
 
@@ -68,12 +75,12 @@ class BekatMapState extends State<BekatMap> {
   Future<void> _onStyle() async {
     final c = _c!;
     for (final r in app.net.routes) {
-      await c.addImage('bus-${r.id}', await busSprite(r.color));
       await c.addImage('badge-${r.id}', await busBadge(r));
     }
     await c.addGeoJsonSource('trip', _empty);
     await c.addGeoJsonSource('pins', _empty);
     await c.addGeoJsonSource('buses', _empty);
+    await c.addGeoJsonSource('bus3d', _empty);
 
     await c.addLayer(
       'trip',
@@ -177,27 +184,15 @@ class BekatMapState extends State<BekatMap> {
       ],
     );
 
+    // buses: small 3D models from stacked extrusions (see [busModel])
     await c.addLayer(
-      'buses',
-      'bus-icon',
-      const SymbolLayerProperties(
-        iconImage: ['get', 'icon'],
-        iconRotate: ['get', 'bearing'],
-        iconRotationAlignment: 'map',
-        iconPitchAlignment: 'map',
-        iconAllowOverlap: true,
-        iconIgnorePlacement: true,
-        iconSize: [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          11,
-          0.14,
-          14,
-          0.3,
-          17,
-          0.62,
-        ],
+      'bus3d',
+      'bus-3d',
+      const FillExtrusionLayerProperties(
+        fillExtrusionColor: ['get', 'c'],
+        fillExtrusionBase: ['get', 'b'],
+        fillExtrusionHeight: ['get', 't'],
+        fillExtrusionOpacity: 1.0,
       ),
     );
     await c.addLayer(
@@ -271,7 +266,9 @@ class BekatMapState extends State<BekatMap> {
 
     _fixedCam = Uri.base.queryParameters.containsKey('cam');
     _ready = true;
-    _timer = Timer.periodic(const Duration(milliseconds: 160), (_) => _tick());
+    // 2.5 updates a second: a bus moves ~2 m per tick, smooth enough, and
+    // weak phones aren't flooded with source updates
+    _timer = Timer.periodic(const Duration(milliseconds: 400), (_) => _tick());
     _onApp();
     // Marketing shots (web): ?cam=lat,lon,zoom,tilt,bearing fixes the camera.
     final cam = Uri.base.queryParameters['cam']
@@ -295,16 +292,25 @@ class BekatMapState extends State<BekatMap> {
     // gentle fly-in
     await Future.delayed(const Duration(milliseconds: 300));
     if (app.dest == null) {
-      _fly(
-        CameraPosition(
-          target: ll(app.origin.pos),
-          zoom: 14.6,
-          tilt: 58,
-          bearing: -18,
-        ),
-        const Duration(milliseconds: 2400),
-      );
+      _fly(_homeCam(14.6), const Duration(milliseconds: 2400));
     }
+  }
+
+  // 3D: tilted, slightly turned; 2D: straight top-down
+  double _tilt(double t) => app.flat ? 0 : t;
+
+  CameraPosition _homeCam(double zoom) => CameraPosition(
+    target: ll(app.origin.pos),
+    zoom: zoom,
+    tilt: _tilt(58),
+    bearing: app.flat ? 0 : -18,
+  );
+
+  Future<void> _applyFlat() async {
+    final c = _c!;
+    _shownFlat = app.flat;
+    await c.setLayerVisibility('buildings', !app.flat);
+    await c.setLayerVisibility('buildings-flat', app.flat);
   }
 
   // ---- camera ------------------------------------------------------------
@@ -317,6 +323,12 @@ class BekatMapState extends State<BekatMap> {
     final c = _c;
     if (c == null || _fixedCam) return;
     _cam?.cancel();
+    _zoom = to.zoom;
+    if (!kIsWeb) {
+      // native animation: no per-frame calls over the platform channel
+      await c.animateCamera(CameraUpdate.newCameraPosition(to), duration: d);
+      return;
+    }
     final from = await c.queryCameraPosition();
     if (from == null) {
       c.moveCamera(CameraUpdate.newCameraPosition(to));
@@ -358,6 +370,8 @@ class BekatMapState extends State<BekatMap> {
   // ---- per-frame ---------------------------------------------------------
   Future<void> _tick() async {
     if (!_ready || _busy || !mounted) return;
+    // paused while another screen covers the map
+    if (!TickerMode.valuesOf(context).enabled) return;
     _busy = true;
     _frame++;
     try {
@@ -369,11 +383,26 @@ class BekatMapState extends State<BekatMap> {
       };
       final routeFilter = active?.rides.map((r) => r.dir.route.id).toSet();
       final feats = <Map<String, dynamic>>[];
+      final models = <Map<String, dynamic>>[];
+      // ~28 px long on screen, true size (12 m) when zoomed right in
+      final mpp =
+          78271.517 * math.cos(namanganCenter.lat * math.pi / 180) /
+          math.pow(2, _zoom);
+      final len = (28 * mpp).clamp(12.0, 160.0);
       for (final b in app.sched.positions(now)) {
         if (routeFilter != null && !routeFilter.contains(b.dir.route.id)) {
           continue;
         }
         final (p, bearing) = b.point;
+        final focus = focusTrips.contains('${b.dir.key}@${b.tripStart}');
+        models.addAll(
+          busModel(
+            p,
+            bearing,
+            hex(b.dir.route.color.toARGB32()),
+            focus ? len * 1.2 : len,
+          ),
+        );
         feats.add({
           'type': 'Feature',
           'properties': {
@@ -381,7 +410,7 @@ class BekatMapState extends State<BekatMap> {
             'badge': 'badge-${b.dir.route.id}',
             'bearing': bearing,
             'route': b.dir.route.id,
-            'focus': focusTrips.contains('${b.dir.key}@${b.tripStart}'),
+            'focus': focus,
           },
           'geometry': {'type': 'Point', 'coordinates': p.lonLat},
         });
@@ -390,8 +419,12 @@ class BekatMapState extends State<BekatMap> {
         'type': 'FeatureCollection',
         'features': feats,
       });
+      await _c!.setGeoJsonSource('bus3d', {
+        'type': 'FeatureCollection',
+        'features': models,
+      });
       await _updatePins(now);
-      if (app.active != null && _frame % 6 == 0) _follow(now);
+      if (app.active != null && _frame % 3 == 0) _follow(now);
     } catch (_) {
     } finally {
       _busy = false;
@@ -399,7 +432,6 @@ class BekatMapState extends State<BekatMap> {
   }
 
   Future<void> _updatePins(double now) async {
-    final pulse = (_frame % 12) / 12.0;
     Map<String, dynamic> pin(
       Geo g,
       String color,
@@ -410,8 +442,8 @@ class BekatMapState extends State<BekatMap> {
       'properties': {
         'color': color,
         'kind': kind,
-        'halo': halo ? 10 + 22 * pulse : 0,
-        'haloOpacity': halo ? 0.35 * (1 - pulse) : 0,
+        'halo': halo ? 20 : 0,
+        'haloOpacity': halo ? 0.2 : 0,
       },
       'geometry': {'type': 'Point', 'coordinates': g.lonLat},
     };
@@ -424,15 +456,22 @@ class BekatMapState extends State<BekatMap> {
       feats.add(pin(app.origin.pos, '#2D6BF0', 'origin'));
       if (app.dest != null) feats.add(pin(app.dest!.pos, '#F2665E', 'dest'));
     }
-    await _c!.setGeoJsonSource('pins', {
-      'type': 'FeatureCollection',
-      'features': feats,
-    });
+    final data = {'type': 'FeatureCollection', 'features': feats};
+    // pins rarely change: skip the round trip to the native map when equal
+    final json = jsonEncode(data);
+    if (json == _pinsJson) return;
+    _pinsJson = json;
+    await _c!.setGeoJsonSource('pins', data);
   }
 
   // ---- reacting to state -------------------------------------------------
   void _onApp() {
     if (!_ready) return;
+    if (app.flat != _shownFlat) {
+      final first = _shownFlat == null;
+      _applyFlat();
+      if (!first) recenter();
+    }
     final j = app.active ?? app.journey;
     if (!identical(j, _shownJourney) || !identical(app.active, _shownActive)) {
       final wasActive = _shownActive != null;
@@ -451,15 +490,7 @@ class BekatMapState extends State<BekatMap> {
       _shownDest = app.dest;
       _shownOrigin = app.origin.pos;
       if (app.dest == null && app.active == null) {
-        _fly(
-          CameraPosition(
-            target: ll(app.origin.pos),
-            zoom: 14.4,
-            tilt: 55,
-            bearing: -18,
-          ),
-          const Duration(milliseconds: 1200),
-        );
+        _fly(_homeCam(14.4), const Duration(milliseconds: 1200));
       }
     }
   }
@@ -561,7 +592,7 @@ class BekatMapState extends State<BekatMap> {
       CameraPosition(
         target: LatLng(cLat, (w + e) / 2),
         zoom: zoom,
-        tilt: tilt,
+        tilt: _tilt(tilt),
         bearing: 0,
       ),
       const Duration(milliseconds: 1100),
@@ -575,8 +606,8 @@ class BekatMapState extends State<BekatMap> {
     _fly(
       CameraPosition(
         target: ll(prog.position),
-        zoom: zoomIn ? 15.8 : 15.8,
-        tilt: 62,
+        zoom: 15.8,
+        tilt: _tilt(62),
         bearing: prog.heading,
       ),
       Duration(milliseconds: zoomIn ? 1800 : 1000),
@@ -590,16 +621,13 @@ class BekatMapState extends State<BekatMap> {
     } else if (j != null) {
       _fit(j);
     } else {
-      _fly(
-        CameraPosition(
-          target: ll(app.origin.pos),
-          zoom: 14.6,
-          tilt: 58,
-          bearing: -18,
-        ),
-        const Duration(milliseconds: 1000),
-      );
+      _fly(_homeCam(14.6), const Duration(milliseconds: 1000));
     }
+  }
+
+  Future<void> _onIdle() async {
+    final cam = await _c?.queryCameraPosition();
+    if (cam != null) _zoom = cam.zoom;
   }
 
   /// Ignore map taps right after navigation (see [TapGuard]).
@@ -637,9 +665,10 @@ class BekatMapState extends State<BekatMap> {
     onMapCreated: (c) => _c = c,
     onStyleLoadedCallback: _onStyle,
     onMapClick: _onTap,
+    onCameraIdle: _onIdle,
     compassEnabled: false,
     rotateGesturesEnabled: true,
-    tiltGesturesEnabled: true,
+    tiltGesturesEnabled: !app.flat,
     attributionButtonPosition: AttributionButtonPosition.bottomLeft,
     attributionButtonMargins: const math.Point(8, 8),
     minMaxZoomPreference: const MinMaxZoomPreference(10.5, 18),
@@ -650,3 +679,59 @@ class BekatMapState extends State<BekatMap> {
 /// Height of the bottom panel for the current state (keeps camera fits clear of it).
 double panelInset(AppState app) =>
     app.active != null ? 190 : (app.dest != null ? 380 : 230);
+
+/// A bus as a tiny 3D model MapLibre draws natively: stacked extrusions for
+/// the wheels, body, window band, roof and the roof AC unit. [len] in metres
+/// (a real bus is 12 m; larger when zoomed out so it stays visible).
+List<Map<String, dynamic>> busModel(
+  Geo p,
+  double bearing,
+  String color,
+  double len,
+) {
+  final k = len / 12, w = 2.55 * k, half = len / 2, ch = 0.6 * k;
+  final rad = bearing * math.pi / 180;
+  final fe = math.sin(rad), fn = math.cos(rad); // forward, as (east, north)
+  const mLat = 1 / 111320.0;
+  final mLon = 1 / (111320.0 * math.cos(p.lat * math.pi / 180));
+  // a: metres forward, c: metres to the right
+  List<double> at(double a, double c) => [
+    p.lon + (fe * a + fn * c) * mLon,
+    p.lat + (fn * a - fe * c) * mLat,
+  ];
+  List<List<double>> outline(double inset) {
+    final b = half - inset, s = w / 2 - inset;
+    return [
+      at(-b, -s),
+      at(b - ch, -s),
+      at(b, -s + ch),
+      at(b, s - ch),
+      at(b - ch, s),
+      at(-b, s),
+      at(-b, -s),
+    ];
+  }
+
+  List<List<double>> box(double a0, double a1, double s) => [
+    at(a0, -s),
+    at(a1, -s),
+    at(a1, s),
+    at(a0, s),
+    at(a0, -s),
+  ];
+  Map<String, dynamic> part(List<List<double>> ring, double b, double t, String c) => {
+    'type': 'Feature',
+    'properties': {'b': b * k, 't': t * k, 'c': c},
+    'geometry': {
+      'type': 'Polygon',
+      'coordinates': [ring],
+    },
+  };
+  return [
+    part(outline(0.3 * k), 0, 0.45, '#1F2229'),
+    part(outline(0), 0.45, 1.35, color),
+    part(outline(0.08 * k), 1.35, 2.5, '#2C3446'),
+    part(outline(0), 2.5, 3.0, color),
+    part(box(-half * 0.45, half * 0.15, w * 0.28), 3.0, 3.35, '#F2F4F8'),
+  ];
+}

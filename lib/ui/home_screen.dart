@@ -41,7 +41,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _clock = Timer.periodic(const Duration(seconds: 1), (_) {
       _sec++;
       if (_sec % 30 == 0) app.refresh();
-      if (mounted) setState(() {});
+      // no rebuilds while another screen covers the map
+      if (mounted && TickerMode.valuesOf(context).enabled) setState(() {});
     });
     app.locate();
   }
@@ -108,6 +109,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final now = app.now;
     final prog = trip == null ? null : TripProgress(app, trip, now);
     return Scaffold(
+      // the map must not resize when the search keyboard opens or closes:
+      // resizing the native map view is slow and makes the keyboard flicker
+      resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -193,6 +197,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 10),
                     ],
+                    RoundButton(
+                      icon: app.flat
+                          ? Icons.view_in_ar_rounded
+                          : Icons.map_outlined,
+                      label: app.flat ? '3D' : '2D',
+                      onTap: () => app.setFlat(!app.flat),
+                    ),
+                    const SizedBox(height: 10),
                     RoundButton(
                       icon: Icons.my_location_rounded,
                       onTap: () => _map.currentState?.recenter(),

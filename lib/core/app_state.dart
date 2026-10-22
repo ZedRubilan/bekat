@@ -54,10 +54,14 @@ class AppState extends ChangeNotifier {
   // ---- settings ------------------------------------------------------
   bool bigText = false;
 
+  /// Top-down 2D map: flat buildings, no tilt. Lighter on weak phones.
+  bool flat = false;
+
   Future<void> loadPrefs() async {
     try {
       final p = await SharedPreferences.getInstance();
       bigText = p.getBool('bigText') ?? false;
+      flat = p.getBool('flat') ?? false;
       searches = p.getInt('searches') ?? 0;
       noBus = [
         for (final s in p.getStringList('noBus') ?? const <String>[])
@@ -80,6 +84,14 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       (await SharedPreferences.getInstance()).setBool('bigText', v);
+    } catch (_) {}
+  }
+
+  Future<void> setFlat(bool v) async {
+    flat = v;
+    notifyListeners();
+    try {
+      (await SharedPreferences.getInstance()).setBool('flat', v);
     } catch (_) {}
   }
 

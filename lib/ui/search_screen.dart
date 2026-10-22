@@ -53,7 +53,14 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
-  void _pick(Place p) => Navigator.pop(context, Endpoint(p.title, p.pos));
+  void _pick(Place p) => _done(Endpoint(p.title, p.pos));
+
+  /// Hide the keyboard before leaving, so it doesn't close mid-transition
+  /// while the map underneath relayouts (flicker on some Android phones).
+  void _done([Endpoint? e]) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.pop(context, e);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +80,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   child: Row(
                     children: [
                       IconButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: _done,
                         icon: const Icon(Icons.arrow_back_rounded),
                       ),
                       Expanded(
@@ -131,6 +138,8 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
                 Expanded(
                   child: ListView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     children: [
                       if (_q.text.isEmpty) ...[
@@ -140,8 +149,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             color: C.blue,
                             title: tr('myPlace'),
                             sub: '',
-                            onTap: () => Navigator.pop(
-                              context,
+                            onTap: () => _done(
                               Endpoint(
                                 tr('myPlace'),
                                 widget.app.me,
@@ -157,8 +165,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             for (final id in _popular)
                               if (net.stops[id] != null)
                                 Press(
-                                  onTap: () => Navigator.pop(
-                                    context,
+                                  onTap: () => _done(
                                     Endpoint(
                                       net.stops[id]!.name.of(lang),
                                       net.stops[id]!.pos,

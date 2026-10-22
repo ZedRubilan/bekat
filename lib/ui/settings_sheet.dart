@@ -93,6 +93,16 @@ class _SettingsState extends State<_Settings> {
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
+              title: Text(tr('flatMap'), style: T.body),
+              subtitle: Text(tr('flatMapSub'), style: T.cap),
+              value: app.flat,
+              onChanged: (v) {
+                app.setFlat(v);
+                setState(() {});
+              },
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
               title: const Text('Demo ×10', style: T.body),
               subtitle: Text(tr('estimated'), style: T.cap),
               value: app.speed > 1,

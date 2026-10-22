@@ -295,6 +295,16 @@ String buildStyle(Network net, String lang) {
           'fill-extrusion-vertical-gradient': true,
         },
       },
+      // 2D mode: the same buildings as flat footprints (cheap to draw)
+      {
+        'id': 'buildings-flat',
+        'type': 'fill',
+        'source': 'omt',
+        'source-layer': 'building',
+        'minzoom': 13.5,
+        'layout': {'visibility': 'none'},
+        'paint': {'fill-color': '#F1F3F7', 'fill-outline-color': '#DDE2EA'},
+      },
       {
         'id': 'road-label',
         'type': 'symbol',
