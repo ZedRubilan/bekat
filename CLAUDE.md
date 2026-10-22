@@ -35,6 +35,9 @@ APKs are debug-signed (no keystore yet) — fine for sideloading, not for Google
 Only routes №1, №2, №3 and their end stops are confirmed. Intermediate stops and routes №5, №7, №9 are
 demo data (`demo: true` in `assets/data/network.json`, shown as "namuna" / "пример"). Keep them
 labelled as samples in the app, slides and posters; don't present them as real.
+The Bekat 2.0 screens (stop display, in-bus screen, community routes, city dashboard) run on sample
+data from `lib/data/demo_data.dart`; each screen carries a `DemoTag`. Keep that tag, and keep
+"пример" on the deck/poster wherever they appear.
 
 ## Checks
 `flutter analyze` and `flutter test` must pass. For visual checks of the web build use

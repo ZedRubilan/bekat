@@ -57,6 +57,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/data/network.json
+    - assets/img/qr.png
   fonts:
     - family: Inter
       fonts:

@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/demo_data.dart';
 import '../data/network.dart';
 import '../data/planner.dart';
 import '../data/schedule.dart';
@@ -56,6 +58,20 @@ class AppState extends ChangeNotifier {
     try {
       final p = await SharedPreferences.getInstance();
       bigText = p.getBool('bigText') ?? false;
+      searches = p.getInt('searches') ?? 0;
+      noBus = [
+        for (final s in p.getStringList('noBus') ?? const <String>[])
+          Geo(double.parse(s.split(',')[0]), double.parse(s.split(',')[1])),
+      ];
+      final mine = p.getString('community');
+      if (mine != null) {
+        community.insertAll(0, [
+          for (final j
+              in (jsonDecode(mine) as List).cast<Map<String, dynamic>>())
+            CommunityRoute.fromJson(j),
+        ]);
+      }
+      confirmed.addAll(p.getStringList('confirmed') ?? const []);
     } catch (_) {}
   }
 
@@ -64,6 +80,63 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       (await SharedPreferences.getInstance()).setBool('bigText', v);
+    } catch (_) {}
+  }
+
+  // ---- demand log (on this device only, anonymous) ------------------------
+  /// Searches made here, and destinations no bus reaches. Shown on the
+  /// demand dashboard next to the sample city-wide numbers.
+  int searches = 0;
+  List<Geo> noBus = [];
+
+  void _logSearch() {
+    searches++;
+    final j = journeys.firstOrNull;
+    if (j == null || j.approximate) {
+      noBus = [...noBus, dest!.pos];
+      if (noBus.length > 200) noBus = noBus.sublist(noBus.length - 200);
+    }
+    () async {
+      try {
+        final p = await SharedPreferences.getInstance();
+        p.setInt('searches', searches);
+        p.setStringList('noBus', [
+          for (final g in noBus)
+            '${g.lat.toStringAsFixed(5)},${g.lon.toStringAsFixed(5)}',
+        ]);
+      } catch (_) {}
+    }();
+  }
+
+  // ---- community routes ------------------------------------------------
+  final community = sampleCommunity();
+  final confirmed = <String>{};
+
+  void addRoute(CommunityRoute r) {
+    community.insert(0, r);
+    confirmed.add(r.id);
+    notifyListeners();
+    _saveCommunity();
+  }
+
+  void confirm(CommunityRoute r) {
+    if (!confirmed.add(r.id)) return;
+    r.confirms++;
+    notifyListeners();
+    _saveCommunity();
+  }
+
+  Future<void> _saveCommunity() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      p.setString(
+        'community',
+        jsonEncode([
+          for (final r in community)
+            if (r.mine) r.toJson(),
+        ]),
+      );
+      p.setStringList('confirmed', confirmed.toList());
     } catch (_) {}
   }
 
@@ -134,6 +207,7 @@ class AppState extends ChangeNotifier {
   void _replan() {
     selected = 0;
     journeys = dest == null ? [] : planner.plan(origin.pos, dest!.pos, now);
+    if (dest != null) _logSearch();
     notifyListeners();
   }
 

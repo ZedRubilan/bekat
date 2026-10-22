@@ -1,0 +1,13 @@
+{
+  "name": "bekat-studexpo",
+  "private": true,
+  "description": "StudEXPO-2026 deck for Bekat: node build.js",
+  "type": "commonjs",
+  "dependencies": {
+    "pptxgenjs": "^3.12.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.3.0",
+    "sharp": "^0.33.5"
+  }
+}

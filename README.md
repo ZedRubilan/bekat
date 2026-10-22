@@ -28,6 +28,21 @@ group 37-ATT-23 (r)), for the "Eng yaxshi kreativ g‘oya" 2026 contest.
 - **Search** in Latin and Cyrillic (`chorsu` = `Чорсу`), online Nominatim fallback.
 - Uzbek / Russian / English, a large-text mode, and a ×10 demo clock for presentations.
 
+## Bekat 2.0 — concept screens (sample data)
+Ideas for the next stages, already clickable in the prototype ("Kelajak / Будущее" button on the
+map, or Settings → Bekat 2.0). Every number on these screens is a **sample** and is labelled so.
+- **Stop display** — next buses, where each one goes (mini-map with live buses), community routes
+  through the stop; at the bus station also intercity departures (Chust, Kosonsoy, Pop…).
+- **In-bus screen** — next stop in big letters, transfers, the whole line with the bus on it.
+- **Community routes** — damas / marshrutka / shared taxi routes added and confirmed by riders
+  (saved on the phone; moderation is a later stage).
+- **City dashboard** — heatmap of searches and of places no bus reaches, top requests, hourly
+  demand, recommendations. Hotspot locations and distances are real (OSM), counts are samples;
+  the "on this device" card counts real searches made on the phone.
+
+The displays are the same web build in kiosk mode, so a cheap screen with a browser is enough:
+`/app/?board=chorsu`, `?board=avtovokzal`, `?bus=3`, `?demand`, `?community`, `?future`.
+
 ## What is real and what is a sample
 | Data | Status |
 |---|---|
@@ -37,6 +52,7 @@ group 37-ATT-23 (r)), for the "Eng yaxshi kreativ g‘oya" 2026 contest.
 | Stop/POI coordinates | Real (OpenStreetMap, Nominatim) |
 | Line shapes | Shortest path on Namangan's main roads (OSM) |
 | Bus positions / ETAs | Simulated from headway (18 km/h), not live GPS |
+| Bekat 2.0 screens (intercity timetable, community routes, demand numbers) | **Sample** data (`lib/data/demo_data.dart`) |
 
 Project stage 1 replaces the samples with GPS-surveyed routes in GTFS format.
 
@@ -60,7 +76,10 @@ lib/
   data/  network.dart       stops, routes, polylines
          schedule.dart      headway timetable → bus positions & arrivals
          planner.dart       RAPTOR journeys      search.dart  Latin/Cyrillic search
+  data/  demo_data.dart     sample data for the Bekat 2.0 screens
   ui/    home_screen.dart   search pill, nearby card, options, trip mode
+         future_screen.dart Bekat 2.0 hub      stop_board.dart  bus_screen.dart
+         community_screen.dart  demand_screen.dart  mini_map.dart (offline schematic map)
          map_view.dart      MapLibre map, buses, trip layer, camera tween
          map_style.dart     light 3D style      scheme_screen.dart  metro diagram
          search_screen.dart settings_sheet.dart  widgets.dart (badges, iso bus, sprites)
@@ -75,6 +94,7 @@ docs/                       contest documents (below)
 | `Eng_yaxshi_kreativ_goya_Bekat_Qodirov_Ulugbek.docx` | Application form (template filled in), built by `build_ariza.py` |
 | `Bekat_Taqdimot_UZ.pptx`, `Bekat_Prezentatsiya_RU.pptx` | 14-slide decks, built by `deck/build_deck.js` |
 | `poster/Bekat_poster_A3_UZ.pdf/.png`, `…_RU…` | A3 posters, built by `poster/render_poster.py` |
+| `Bekat StudEXPO-2026.pptx/.pdf` | 7-slide StudEXPO deck (RU), built by `studexpo/bekat.js` |
 | `shots/`, `assets/` | Real app screenshots and mockups (`make_assets.py`) |
 
 Regenerate after app changes:
@@ -84,8 +104,14 @@ python3 tool/shoot.py docs/shots/uz "wait:1300;shot:01_splash;wait:10500;shot:02
 #   (same with docs/shots/ru, "type:чорсу" and last argument ru)
 W=1500 H=1150 python3 tool/shoot.py docs/shots/uz "wait:11000;click:1428,823;wait:3200;shot:scheme_wide" uz
 W=1600 H=1000 Q="?clean&cam=41.0045,71.6745,15.2,62,-28" python3 tool/shoot.py docs/shots/uz "wait:17000;shot:map_center" uz
+# Bekat 2.0 screens (both languages; last argument uz / ru)
+for q in board=chorsu:f_board board=avtovokzal:f_intercity bus=3:f_bus; do W=1600 H=900 DPR=1.5 Q="?${q%%:*}" python3 tool/shoot.py docs/shots/uz "wait:4000;shot:${q##*:}" uz; done
+W=1600 H=900 DPR=1.5 Q="?demand" python3 tool/shoot.py docs/shots/uz "wait:10000;shot:f_demand" uz
+W=1200 H=675 DPR=2 Q="?community" python3 tool/shoot.py docs/shots/uz "wait:3000;shot:f_community" uz
+W=1200 H=675 DPR=2 Q="?future" python3 tool/shoot.py docs/shots/uz "wait:3000;shot:f_future" uz
 python3 docs/make_assets.py
 (cd docs/deck && npm install && node build_deck.js)
+(cd docs/studexpo && npm install && node bekat.js)   # then: soffice --headless --convert-to pdf
 python3 docs/poster/render_poster.py
 python3 docs/build_ariza.py
 ```

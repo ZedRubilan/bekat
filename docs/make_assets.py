@@ -42,6 +42,10 @@ for lang in ("uz", "ru"):
     for name in ("02_home", "03_scheme", "04_search", "05_plan", "06_trip"):
         phone(d / f"{name}.png", OUT / f"phone_{name}_{lang}.png")
     Image.open(d / "scheme_wide.png").crop((0, 150, 3000, 2200)).save(OUT / f"scheme_{lang}.png")
+    # Bekat 2.0 concept screens (landscape), for the poster and the deck
+    for name in ("f_board", "f_intercity", "f_bus", "f_demand", "f_community", "f_future"):
+        im = Image.open(d / f"{name}.png").convert("RGB")
+        im.resize((1280, round(1280 * im.height / im.width)), Image.LANCZOS).save(OUT / f"{name}_{lang}.png", optimize=True)
 # city overview without the empty sky
 Image.open(HERE / "shots" / "uz" / "map_city.png").crop((0, 260, 2400, 1760)).save(OUT / "map_city.png")
 Image.open(HERE / "shots" / "uz" / "map_center.png").save(OUT / "map_center.png")

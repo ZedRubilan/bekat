@@ -39,8 +39,8 @@
   .txt { font-size: 15.5px; line-height: 1.42; color: var(--ink2); font-weight: 500; }
   .txt b { color: var(--ink); font-weight: 700; }
 
-  .row1 { display: grid; grid-template-columns: 455px 1fr 520px; gap: 16px; height: 606px; }
-  .row2 { display: grid; grid-template-columns: 1.05fr .85fr 1fr 1.1fr; gap: 16px; height: 392px; }
+  .row1 { display: grid; grid-template-columns: 455px 1fr 520px; gap: 16px; height: 578px; }
+  .row2 { display: grid; grid-template-columns: 370px 1fr 352px 410px; gap: 16px; height: 420px; }
 
   /* problem */
   ul.pts { list-style: none; display: flex; flex-direction: column; gap: 7px; margin: 2px 0 14px; }
@@ -81,8 +81,16 @@
   .step .dot { width: 46px; height: 46px; border-radius: 50%; background: #fff; border: 4px solid var(--ink); margin: 0 auto 10px; display: grid; place-items: center; font-weight: 900; font-size: 18px; }
   .step b { display: block; font-size: 15.5px; margin-bottom: 4px; }
   .step span { font-size: 12.5px; color: var(--ink2); line-height: 1.3; display: block; }
-  .algo { margin-top: 12px; background: var(--bg); border-radius: 16px; padding: 10px 14px; font-size: 13.5px; line-height: 1.4; color: var(--ink2); }
+  .algo { margin-top: 10px; background: var(--bg); border-radius: 16px; padding: 9px 13px; font-size: 13px; line-height: 1.4; color: var(--ink2); }
   .algo b { color: var(--ink); }
+
+  /* Bekat 2.0 */
+  .label .demo { margin-left: auto; background: #FFF3DC; color: #B7791F; border-radius: 20px; padding: 3px 10px; font-size: 12px; letter-spacing: .4px; text-transform: none; }
+  .fsub { font-size: 15px; font-weight: 600; color: var(--ink); margin: -2px 0 10px; }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .shot { position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 16 / 9; background: #0B0E13; box-shadow: 0 6px 16px rgba(27,36,64,.14); }
+  .shot img { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
+  .shot span { position: absolute; left: 8px; bottom: 8px; background: rgba(21,23,28,.88); color: #fff; font-size: 12.5px; font-weight: 700; padding: 5px 9px; border-radius: 9px; }
 
   /* tech */
   .stack { display: flex; flex-direction: column; gap: 7px; }
@@ -93,8 +101,9 @@
   .flutter { margin-top: 10px; background: var(--night); color: #fff; border-radius: 14px; padding: 10px 12px; font-weight: 700; font-size: 14px; text-align: center; }
 
   /* table */
-  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
-  th, td { padding: 8px 8px; text-align: left; border-bottom: 1px solid var(--line); }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12.5px; table-layout: fixed; }
+  th:first-child, td:first-child { width: 31%; } th.me, td.me { width: 24%; }
+  th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--line); }
   th { font-size: 12.5px; color: var(--ink2); font-weight: 700; }
   th.me, td.me { background: #E6EEFE; font-weight: 800; color: var(--ink); }
   th.me { background: var(--blue); color: #fff; border-radius: 10px 10px 0 0; }
@@ -103,8 +112,8 @@
 
   /* plan */
   .money { display: flex; gap: 10px; margin-bottom: 12px; }
-  .money div { flex: 1; background: var(--bg); border-radius: 16px; padding: 10px 14px; }
-  .money b { display: block; font-size: 26px; font-weight: 900; letter-spacing: -1px; }
+  .money div { flex: 1; background: var(--bg); border-radius: 16px; padding: 10px 12px; }
+  .money b { display: block; font-size: 22px; white-space: nowrap; font-weight: 900; letter-spacing: -1px; }
   .money span { font-size: 12.5px; color: var(--ink2); font-weight: 600; }
   .tl { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 4px 0 10px; }
   .tl::before { content: ""; position: absolute; left: 16px; right: 16px; top: 9px; height: 4px; background: var(--r7); border-radius: 2px; }
@@ -181,9 +190,9 @@
       <div class="algo" data-t="algo"></div>
     </div>
     <div class="card">
-      <div class="label"><span class="b" style="background:var(--r7)">5</span><span data-t="l5"></span></div>
-      <h2 data-t="flutter" style="font-size:19px;margin-bottom:9px"></h2>
-      <div class="stack" id="stack"></div>
+      <div class="label"><span class="b" style="background:var(--r7)">5</span><span data-t="l5"></span><span class="demo" data-t="demoTag"></span></div>
+      <div class="fsub" data-t="fsub"></div>
+      <div class="shots" id="shots"></div>
     </div>
     <div class="card">
       <div class="label"><span class="b" style="background:var(--r9)">6</span><span data-t="l6"></span></div>
@@ -212,7 +221,7 @@ const T = {
     tagline: "Namangan avtobuslari uchun aqlli marshrut xaritasi",
     uni: "Namangan davlat texnika universiteti", contest: "“Eng yaxshi kreativ g‘oya” respublika tanlovi · 2026", author: "Mualliflar: Qodirov Ulug‘bek, Zamalitdinov Salim · 37‑ATT‑23&nbsp;(r)",
     l1: "Muammo", h1: "“Qaysi avtobus? Qayerda almashaman?”",
-    pts: ["Shaharda yangi avtobuslar ko‘paymoqda, yo‘nalishlar qayta tuzilmoqda", "To‘g‘ridan-to‘g‘ri avtobus bo‘lmasa — odamlar taksiga o‘tadi", "Almashinuvli yo‘lni sodda ko‘rsatadigan vosita yo‘q"],
+    pts: ["Avtobuslar ko‘paymoqda, yo‘nalishlar o‘zgarmoqda", "To‘g‘ri avtobus bo‘lmasa — odamlar taksiga o‘tadi", "Shaharlararo jadval faqat Telegram guruhlarida"],
     q: "Chorsudan Yuksalishga qanday boraman?",
     stats: [["731,3k", "Namangan shahri aholisi"], ["130", "zamonaviy avtobus"], ["10", "brutto-shartnomali yo‘nalish"], ["0", "yo‘nalish ochiq xaritada (OSM)"]],
     src: "Manbalar: namstat.uz (01.04.2026), yuz.uz (03.10.2026), gazeta.uz (24.09.2026), OpenStreetMap so‘rovi (14.10.2026)",
@@ -223,8 +232,9 @@ const T = {
     names: {"1":"Otchopar – Taxtako‘prik","2":"Otchopar – Chorsu","3":"Yuksalish – Chorsu","5":"Aeroport – Lola bozori","7":"Gulbog‘ – Vokzal","9":"Yangi Namangan – Viloyat bolalar kasalxonasi"},
     l4: "Qanday ishlaydi", h4: "4 qadam, minimal matn",
     steps: [["Qayerga?", "Qidiring yoki xaritaga bosing"], ["Variantlar", "Eng tez yo‘l va almashinuvlar"], ["Yo‘lga", "Avtobus necha daqiqada keladi"], ["Yetib keldingiz", "Qolgan bekatlar va vaqt"]],
-    algo: "<b>RAPTOR</b> algoritmi telefon ichida 1 soniyadan tez hisoblaydi. Manzilga avtobus bormasa — <b>eng yaqin bekatgacha</b> yo‘l va qolgan piyoda masofa ko‘rsatiladi.",
-    l5: "Texnologiya",
+    algo: "<b>RAPTOR</b> algoritmi telefon ichida 1 soniyadan tez hisoblaydi. Manzilga avtobus bormasa — <b>eng yaqin bekatgacha</b> yo‘l va qolgan piyoda masofa ko‘rsatiladi.<br><b>Flutter</b> (Android · iOS · Web) · MapLibre + OpenStreetMap · GTFS",
+    l5: "Bekat 2.0 · keyingi bosqichlar", demoTag: "namuna", fsub: "Prototipda allaqachon ishlaydi — namuna ma’lumotlar bilan",
+    shots: [["f_board", "Bekatdagi tablo"], ["f_bus", "Avtobus ichidagi ekran"], ["f_demand", "Hokimiyat uchun talab xaritasi"], ["f_community", "Damas va marshrutkalar — jamoadan"]],
     stack: [["r5", "Ma’lumot", "Bekatlar va yo‘nalishlar GPS bilan yig‘iladi, GTFS formatida"], ["r2", "Telefonda", "Marshrut va jadval internetsiz ishlaydi"], ["r3", "3D xarita", "MapLibre + OpenStreetMap, jonli avtobuslar"], ["r7", "Shahar uchun", "Anonim talab xaritasi — yangi yo‘nalishlar uchun dalil"]],
     flutter: "Flutter: Android · iOS · Web — bitta kod",
     l6: "Analoglar",
@@ -239,7 +249,7 @@ const T = {
     tagline: "Умная карта автобусных маршрутов Намангана",
     uni: "Наманганский государственный технический университет", contest: "Конкурс «Лучшая креативная идея» · 2026", author: "Авторы: Кодиров Улугбек, Замалитдинов Салим · 37‑АТТ‑23&nbsp;(r)",
     l1: "Проблема", h1: "«Какой автобус? Где пересесть?»",
-    pts: ["В городе всё больше новых автобусов, маршруты меняются", "Нет прямого автобуса — люди едут на такси", "Нет простого инструмента для пути с пересадками"],
+    pts: ["Всё больше новых автобусов, маршруты меняются", "Нет прямого автобуса — люди едут на такси", "Расписание междугородних рейсов — только в Telegram-группах"],
     q: "Как доехать от Чорсу до Юксалиша?",
     stats: [["731,3k", "жителей Намангана"], ["130", "современных автобусов"], ["10", "маршрутов по брутто-контракту"], ["0", "маршрутов на открытой карте (OSM)"]],
     src: "Источники: namstat.uz (01.04.2026), yuz.uz (03.10.2026), gazeta.uz (24.09.2026), запрос к OpenStreetMap (14.10.2026)",
@@ -250,12 +260,13 @@ const T = {
     names: {"1":"Отчопар – Тахтакуприк","2":"Отчопар – Чорсу","3":"Юксалиш – Чорсу","5":"Аэропорт – рынок Лола","7":"Гульбог – Вокзал","9":"Янги Наманган – Обл. детская больница"},
     l4: "Как это работает", h4: "4 шага, минимум текста",
     steps: [["Куда?", "Поиск или нажатие на карту"], ["Варианты", "Самый быстрый путь и пересадки"], ["Поехали", "Через сколько минут автобус"], ["На месте", "Остановки и время до цели"]],
-    algo: "Алгоритм <b>RAPTOR</b> считает маршрут прямо в телефоне быстрее 1 секунды. Если автобус туда не идёт — путь <b>до ближайшей остановки</b> и остаток пешком.",
-    l5: "Технологии",
+    algo: "Алгоритм <b>RAPTOR</b> считает маршрут прямо в телефоне быстрее 1 секунды. Если автобус туда не идёт — путь <b>до ближайшей остановки</b> и остаток пешком.<br><b>Flutter</b> (Android · iOS · Web) · MapLibre + OpenStreetMap · GTFS",
+    l5: "Bekat 2.0 · следующие этапы", demoTag: "пример", fsub: "Уже работает в прототипе — на демо-данных",
+    shots: [["f_board", "Табло на остановке"], ["f_bus", "Экран в салоне автобуса"], ["f_demand", "Карта спроса для хокимията"], ["f_community", "Дамасы и маршрутки от жителей"]],
     stack: [["r5", "Данные", "Остановки и маршруты собираются с GPS, формат GTFS"], ["r2", "В телефоне", "Маршруты и расписание без интернета"], ["r3", "3D-карта", "MapLibre + OpenStreetMap, живые автобусы"], ["r7", "Для города", "Анонимная карта спроса — довод для новых маршрутов"]],
     flutter: "Flutter: Android · iOS · Web — один код",
     l6: "Аналоги",
-    tbl: [["", "Яндекс", "OSM-приложения", "Bekat"], ["Живые автобусы", "Есть", "Нет", "2-й этап"], ["Схема сети", "Нет", "Нет", "Есть"], ["Ближайшая точка", "—", "—", "Есть"], ["Анализ спроса", "Нет", "Нет", "Есть"], ["База Намангана", "Закрыта", "0", "Открыта"]],
+    tbl: [["", "Яндекс", "OSM-прил.", "Bekat"], ["Живые автобусы", "Есть", "Нет", "2-й этап"], ["Схема сети", "Нет", "Нет", "Есть"], ["Ближайшая точка", "—", "—", "Есть"], ["Анализ спроса", "Нет", "Нет", "Есть"], ["База Намангана", "Закрыта", "0", "Открыта"]],
     l7: "План · смета · KPI",
     money: [["40 млн", "сумов смета"], ["3 мес.", "до пилота"], ["Бесплатно", "для жителей · B2G"]],
     tl: [["Нед. 1–3", "Остановки с GPS"], ["Нед. 3–5", "Приложение, 3 языка"], ["Нед. 6–8", "Маршруты, схема, релиз"], ["Нед. 9–12", "Пилот, 100+ польз."], ["Далее", "Живой GPS, Андижан"]],
@@ -275,7 +286,7 @@ document.getElementById("stats").innerHTML = L.stats.map(([v, s], i) => `<div cl
 document.getElementById("chips").innerHTML = L.chips.map(([c, t]) => `<div class="chip"><i style="background:var(--${c})"></i>${t}</div>`).join("");
 document.getElementById("legend").innerHTML = ROUTES.map(([id, c]) => `<div>${badge(id, c)}<span>${L.names[id]} <em class="${["5","7","9"].includes(id) ? "" : "ok"}">· ${["5","7","9"].includes(id) ? L.demo : L.real}</em></span></div>`).join("");
 document.getElementById("steps").innerHTML = L.steps.map(([h, s], i) => `<div class="step"><div class="dot">${i + 1}</div><b>${h}</b><span>${s}</span></div>`).join("");
-document.getElementById("stack").innerHTML = L.stack.map(([c, h, s]) => `<div class="layer"><span class="b" style="background:var(--${c})"></span><div><b>${h}</b><span>${s}</span></div></div>`).join("");
+document.getElementById("shots").innerHTML = L.shots.map(([f, t]) => `<div class="shot"><img src="../assets/${f}_${lang}.png" alt=""><span>${t}</span></div>`).join("");
 document.getElementById("tbl").innerHTML = L.tbl.map((r, ri) => `<tr>${r.map((c, ci) => ri === 0 ? `<th class="${ci === 3 ? "me" : ""}">${c}</th>` : `<td class="${ci === 3 ? "me" : ""}">${c}</td>`).join("")}</tr>`).join("");
 document.getElementById("money").innerHTML = L.money.map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join("");
 document.getElementById("tl").innerHTML = L.tl.map(([b, s]) => `<div><b>${b}</b>${s}</div>`).join("");

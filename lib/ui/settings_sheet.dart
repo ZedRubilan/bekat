@@ -4,6 +4,7 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import '../core/app_state.dart';
 import '../core/i18n.dart';
 import '../core/theme.dart';
+import 'future_screen.dart';
 import 'widgets.dart';
 
 Future<void> showSettings(BuildContext context, AppState app) =>
@@ -98,6 +99,20 @@ class _SettingsState extends State<_Settings> {
               onChanged: (v) {
                 app.setSpeed(v ? 10 : 1);
                 setState(() {});
+              },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.auto_awesome_rounded, color: C.blue),
+              title: const Text('Bekat 2.0', style: T.body),
+              subtitle: Text(
+                '${tr('fBoard')} · ${tr('fDemand')}',
+                style: T.cap,
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                Navigator.pop(context);
+                openPage(context, FutureScreen(app: app));
               },
             ),
             const Divider(color: C.line),

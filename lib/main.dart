@@ -4,7 +4,12 @@ import 'core/app_state.dart';
 import 'core/i18n.dart';
 import 'core/theme.dart';
 import 'data/network.dart';
+import 'ui/bus_screen.dart';
+import 'ui/community_screen.dart';
+import 'ui/demand_screen.dart';
+import 'ui/future_screen.dart';
 import 'ui/home_screen.dart';
+import 'ui/stop_board.dart';
 import 'ui/widgets.dart';
 
 Future<void> main() async {
@@ -23,6 +28,34 @@ class _BekatAppState extends State<BekatApp> {
   AppState? _app;
   bool _splashDone = false;
 
+  /// Web display modes: `?board=STOP_ID`, `?bus=ROUTE_ID`, `?demand`,
+  /// `?community`, `?future`. A stop or bus screen is just a browser on this page.
+  static final _q = Uri.base.queryParameters;
+  static final _kiosk = [
+    'board',
+    'bus',
+    'demand',
+    'community',
+    'future',
+  ].any(_q.containsKey);
+
+  Widget _home(AppState app) {
+    final stop = app.net.stops[_q['board']];
+    if (stop != null) return StopBoard(app: app, stop: stop, kiosk: true);
+    if (_q.containsKey('bus')) {
+      final id = _q['bus']!;
+      return BusScreen(
+        app: app,
+        routeId: app.net.routes.any((r) => r.id == id) ? id : '3',
+        kiosk: true,
+      );
+    }
+    if (_q.containsKey('demand')) return DemandScreen(app: app, kiosk: true);
+    if (_q.containsKey('community')) return CommunityScreen(app: app);
+    if (_q.containsKey('future')) return FutureScreen(app: app);
+    return HomeScreen(app: app);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -35,7 +68,7 @@ class _BekatAppState extends State<BekatApp> {
       setState(() => _app = app);
     }();
     Future.delayed(
-      const Duration(milliseconds: 2300),
+      Duration(milliseconds: _kiosk ? 0 : 2300),
       () => setState(() => _splashDone = true),
     );
   }
@@ -55,9 +88,7 @@ class _BekatAppState extends State<BekatApp> {
       ),
       home: AnimatedSwitcher(
         duration: const Duration(milliseconds: 600),
-        child: app == null || !_splashDone
-            ? const Splash()
-            : HomeScreen(app: app),
+        child: app == null || !_splashDone ? const Splash() : _home(app),
       ),
     );
   }

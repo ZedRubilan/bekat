@@ -8,6 +8,7 @@ import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../data/network.dart';
 import '../data/planner.dart';
+import 'future_screen.dart';
 import 'map_view.dart';
 import 'scheme_screen.dart';
 import 'search_screen.dart';
@@ -172,8 +173,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 duration: const Duration(milliseconds: 250),
                 child: Column(
                   key: ValueKey((trip != null, planning)),
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     if (trip == null && !planning) ...[
+                      RoundButton(
+                        icon: Icons.auto_awesome_rounded,
+                        dark: true,
+                        onTap: () => openPage(
+                          context,
+                          FutureScreen(app: app),
+                        ).then((_) => BekatMapState.suppressTaps()),
+                        label: tr('future'),
+                      ),
+                      const SizedBox(height: 10),
                       RoundButton(
                         icon: Icons.route_rounded,
                         onTap: _openScheme,

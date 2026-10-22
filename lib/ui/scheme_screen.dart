@@ -7,6 +7,8 @@ import '../core/app_state.dart';
 import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../data/network.dart';
+import 'future_screen.dart' show openPage;
+import 'stop_board.dart';
 import 'widgets.dart';
 
 /// Hand-laid metro-style positions (grid units) and label side per stop.
@@ -593,6 +595,14 @@ class _StopSheet extends StatelessWidget {
                 Icon(kindIcon(stop.kind), color: C.ink2),
                 const SizedBox(width: 10),
                 Expanded(child: Text(stop.name.of(lang), style: T.title)),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    openPage(context, StopBoard(app: app, stop: stop));
+                  },
+                  icon: const Icon(Icons.departure_board_rounded, size: 18),
+                  label: Text(tr('boardBtn')),
+                ),
               ],
             ),
             const SizedBox(height: 12),

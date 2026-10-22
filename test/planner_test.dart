@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:bekat/data/demo_data.dart';
 import 'package:bekat/data/network.dart';
 import 'package:bekat/data/planner.dart';
 import 'package:bekat/data/schedule.dart';
@@ -7,17 +8,27 @@ import 'package:bekat/data/search.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  final net = Network.parse(File('assets/data/network.json').readAsStringSync());
+  final net = Network.parse(
+    File('assets/data/network.json').readAsStringSync(),
+  );
   final sched = Schedule(net);
   final planner = Planner(net, sched);
   Geo at(String id) => net.stops[id]!.pos;
 
   test('network loads with confirmed and demo routes', () {
     expect(net.routes.map((r) => r.id), containsAll(['1', '2', '3']));
-    expect(net.routes.where((r) => !r.demo).map((r) => r.id).toSet(), {'1', '2', '3'});
+    expect(net.routes.where((r) => !r.demo).map((r) => r.id).toSet(), {
+      '1',
+      '2',
+      '3',
+    });
     for (final d in net.dirs) {
       for (var i = 1; i < d.stopAt.length; i++) {
-        expect(d.stopAt[i], greaterThan(d.stopAt[i - 1]), reason: '${d.key} stop order');
+        expect(
+          d.stopAt[i],
+          greaterThan(d.stopAt[i - 1]),
+          reason: '${d.key} stop order',
+        );
       }
     }
   });
@@ -37,7 +48,10 @@ void main() {
     expect(best.rides.first.dir.route.id, '3');
     // legs are continuous in time
     for (var i = 1; i < best.legs.length; i++) {
-      expect(best.legs[i].start, greaterThanOrEqualTo(best.legs[i - 1].end - 1e-6));
+      expect(
+        best.legs[i].start,
+        greaterThanOrEqualTo(best.legs[i - 1].end - 1e-6),
+      );
     }
   });
 
@@ -67,5 +81,25 @@ void main() {
     expect(s.query('chorsu', 'uz').first.title, contains('Chorsu'));
     expect(s.query('Чорсу', 'ru').first.stop?.id, 'chorsu');
     expect(s.query('vokzal', 'uz'), isNotEmpty);
+  });
+
+  test('demo data is consistent with the network', () {
+    // the dashboard says "no stop within 1 km" for every hotspot
+    for (final h in hotspots) {
+      expect(net.nearestStop(h.pos).$2, greaterThan(1000), reason: h.name.en);
+    }
+    for (final r in sampleCommunity()) {
+      for (final id in r.via) {
+        expect(net.stops, contains(id), reason: r.id);
+      }
+    }
+    for (final (a, b, _) in topPairs) {
+      expect(net.stops.keys, containsAll([a, b]));
+    }
+    final deps = nextDepartures(10 * 60);
+    expect(deps, isNotEmpty);
+    for (var i = 1; i < deps.length; i++) {
+      expect(deps[i].at, greaterThanOrEqualTo(deps[i - 1].at));
+    }
   });
 }
